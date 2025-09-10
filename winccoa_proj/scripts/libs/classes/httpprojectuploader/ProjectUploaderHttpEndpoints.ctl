@@ -120,7 +120,7 @@ class ProjectUploaderHttpEndpoints
   private static bool isEnabled()
   {
     bool isDflt;
-    bool enabled =paCfgReadValue(CFG_PATH, "httpProjectUploader", "enabled", true, isDflt);
+    bool enabled =paCfgReadValueDflt(CONFIG_REL_PATH + "config", "httpProjectUploader", "enabled", true, isDflt);
     return enabled;
   }
 };
