@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WinCC Open Architecture - Project download</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f9f9f9;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            background-color: #f2f2f2;
+            padding: 10px 20px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .header svg {
+            height: 40px;
+            width: 40px;
+            margin-right: 15px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .form-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 70px);
+        }
+
+        .form-box {
+            background-color: #ffffff;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .form-box h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #333;
+        }
+
+        .form-box label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-box input[type="file"],
+        .form-box input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .form-box input[type="submit"] {
+            background-color: #01656e;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .form-box input[type="submit"]:hover {
+            background-color: #005057;
+        }
+    </style>
+    <script>
+		
+		function toggleNotice() {
+			const checkbox = document.getElementById("restartProject");
+			const notice = document.getElementById("restartNotice");
+			notice.style.display = checkbox.checked ? "block" : "none";
+		}
+		
+		
+		let pendingEvent = null;
+
+		function handleDownload(event) {
+			event.preventDefault();
+			const checkbox = document.getElementById("restartProject");
+
+			if (checkbox.checked) {
+				pendingEvent = event;
+				document.getElementById("confirmationModal").style.display = "block";
+			} else {
+				downloadFile();
+			}
+		}
+
+		
+		function confirmDownload(confirmed) {
+			document.getElementById("confirmationModal").style.display = "none";
+			if (confirmed) {
+				downloadFile();
+			}
+		}
+	
+        async function downloadFile() {
+            const form = document.getElementById("downloadForm");
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch("/project/download", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.text();
+                    alert("Download successful: " + result);
+                } else {
+                    alert("Download failed: " + response.statusText);
+                }
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+		window.addEventListener("DOMContentLoaded", toggleNotice);
+    </script>
+</head>
+<body>
+    <div class="header">
+        <!-- Logo SVG intégré -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 219.9 219.9">
+            <style>
+                .cls-1 { fill: #01656e; }
+                .cls-2 { fill: #ffd732; }
+                .cls-3 { fill: #00557c; }
+                .cls-4 { fill: #1fb9d8; }
+            </style>
+            <g id="winccoa">
+                <rect class="cls-4" width="50.1" height="50.1"/>
+                <rect class="cls-3" x="56.6" width="50.1" height="50.1"/>
+                <rect class="cls-1" x="113.2" width="50.1" height="50.1"/>
+                <rect class="cls-4" x="169.8" width="50.1" height="50.1"/>
+                <rect class="cls-3" y="56.6" width="50.1" height="50.1"/>
+                <rect class="cls-2" x="56.6" y="56.6" width="50.1" height="50.1"/>
+                <rect class="cls-4" x="113.2" y="56.6" width="50.1" height="50.1"/>
+                <rect class="cls-2" x="169.8" y="56.6" width="50.1" height="50.1"/>
+                <rect class="cls-2" y="113.2" width="50.1" height="50.1"/>
+                <rect class="cls-1" x="56.6" y="113.2" width="50.1" height="50.1"/>
+                <rect class="cls-3" x="113.2" y="113.2" width="50.1" height="50.1"/>
+                <rect class="cls-1" x="169.8" y="113.2" width="50.1" height="50.1"/>
+                <rect class="cls-3" y="169.8" width="50.1" height="50.1"/>
+                <rect class="cls-2" x="56.6" y="169.8" width="50.1" height="50.1"/>
+                <rect class="cls-1" x="113.2" y="169.8" width="50.1" height="50.1"/>
+                <rect class="cls-4" x="169.8" y="169.8" width="50.1" height="50.1"/>
+            </g>
+        </svg>
+        <h1>WinCC Open Architecture – Project download</h1>
+    </div>
+
+    <div class="form-wrapper">
+        <div class="form-box">
+            <h2>Download Your Project</h2>
+            <form id="downloadForm" onsubmit="handleDownload(event)" enctype="multipart/form-data">
+                <label for="dateiupload">Select ZIP file:</label>
+                <input type="file" name="dateiupload" accept=".zip"  required>
+
+				<label>
+					<input type="checkbox" name="restartProject" id="restartProject" value="true" onchange="toggleNotice()">
+					Restart project after download
+				</label>
+				
+				<div id="restartNotice" style="display:none; border: 1px solid #b30000; background-color: #ffe6e6; padding: 10px; margin-top: 10px; border-radius: 4px;">
+					<strong>⚠️ Warning :</strong> This will restarts <u>ALL managers</u> after project downloaded to WinCC OA server(s). This may cause loss of production.
+				</div>
+				
+                <input type="submit" value="Download">
+            </form>
+
+			<!-- Modale de confirmation -->
+			<div id="confirmationModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); z-index:1000;">
+				<div style="background:#fff; padding:20px; border-radius:8px; max-width:400px; margin:100px auto; box-shadow:0 4px 12px rgba(0,0,0,0.2); text-align:center;">
+					<h3>Restart of project</h3>
+					<p>You have requested to restart the project.<br><strong>All managers will be restarted after download.</strong><br>Do you wish to continue?</p>
+					<button onclick="confirmDownload(true)" style="margin-right:10px;">Yes, continue</button>
+					<button onclick="confirmDownload(false)">Cancel</button>
+				</div>
+			</div>     
+
+	   </div>
+    </div>
+</body>
+</html>
