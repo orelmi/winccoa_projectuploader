@@ -97,7 +97,7 @@
 				pendingEvent = event;
 				document.getElementById("confirmationModal").style.display = "block";
 			} else {
-				downloadFile();
+				downloadFile(event);
 			}
 		}
 
@@ -105,11 +105,11 @@
 		function confirmDownload(confirmed) {
 			document.getElementById("confirmationModal").style.display = "none";
 			if (confirmed) {
-				downloadFile();
+				downloadFile(pendingEvent);
 			}
 		}
 	
-        async function downloadFile() {
+        async function downloadFile(event) {
             const form = document.getElementById("downloadForm");
             const formData = new FormData(form);
 
@@ -121,13 +121,17 @@
 
                 if (response.ok) {
                     const result = await response.text();
+					
                     alert("Download successful: " + result);
                 } else {
                     alert("Download failed: " + response.statusText);
                 }
+				
             } catch (error) {
                 alert("Error: " + error.message);
             }
+			event.target.reset();
+			toggleNotice();
         }
 		window.addEventListener("DOMContentLoaded", toggleNotice);
     </script>
