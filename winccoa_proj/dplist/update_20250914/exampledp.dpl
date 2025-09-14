@@ -1,0 +1,9 @@
+# ascii dump of database
+
+# Datapoint/DpId
+DpName	TypeName	ID
+ExampleDP_Arg1	ExampleDP_Float	400
+
+# DpValue
+Manager/User	ElementName	TypeName	_original.._value	_original.._status64	_original.._stime
+ASC (1)/0	ExampleDP_Arg1.	ExampleDP_Float	4	0x8300000000000101	12.02.2025 10:51:09.268

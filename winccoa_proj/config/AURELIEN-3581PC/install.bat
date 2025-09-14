@@ -1,0 +1,1 @@
+WCCOAasciiSQLite -currentproj -in dplist/update_20250914/*.dpl

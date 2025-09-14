@@ -10,9 +10,11 @@ A lightweight http handler for project download.
 - web page allowing you to download a ZIP file
 - automatic decompression of ZIP in the project tree
 - option to restart the project after download
-- handle multiple servers in case of remote managers by using a datapoint to distribute the ZIP file to each servers.
 - special file ``config.env.bat`` started after download, copy files from sub-folder for current hostname in config directory (support FQDN and netbios name). This allow copy of new config or progs files.
-- special file ``pmondeploy.txt`` allows to define special commands for WCCILpmon (restart a manager)
+- special file ``install.bat`` allows to define command lines to import dplist/* (see example)
+- special file ``pmondeploy.txt`` allows to define special commands for WCCILpmon (restart a manager) at the end of download
+- handle multiple servers in case of remote managers by using a datapoint to distribute the ZIP file to each servers.
+
 
 
 ## 🛠️ Installation
@@ -71,11 +73,11 @@ projectdownload.ctl in the Console
 
 ## Roadmap
 
-1. Add automatic import of DPL files after download.
-2. Download directly from Gedi (menu extension).
-3. Add options to keep or replace database.
-4. Add pmon authentication to secure project download.
-5. Add console view in html page.
+1. Download directly from Gedi (menu extension).
+2. Add options to keep or replace database.
+3. Add pmon authentication to secure project download.
+4. Add console view in html page.
+5. Support of redundancy.
 6. Support of distributed systems.
 7. Improve UI/UX.
 8. Become native feature of WinCC OA installation !

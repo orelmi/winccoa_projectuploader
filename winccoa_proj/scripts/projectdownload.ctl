@@ -4,6 +4,7 @@
 const string DPT_PROJDOWN = "PROJECT_DOWNLOAD";
 string DP_PROJDOWN = "PROJECT_DOWNLOAD_001";
 const string PMON_DEPLOY_FILE = PROJ_PATH + CONFIG_REL_PATH + "pmondeploy.txt";
+const string INSTALL_FILE = PROJ_PATH + CONFIG_REL_PATH + "install.bat";
 const string CONFIG_ENV_FILE = PROJ_PATH + CONFIG_REL_PATH + "config.env.bat";
 
 main(string arg)
@@ -31,13 +32,14 @@ cbData(string dp1, bool command, string dp2, blob filedata, string dp3, bool res
 		int rc = unzipData(filedata);
 		dpSet(
         DP_PROJDOWN + ".command", false,
-        DP_PROJDOWN + ".filedata", 0,
+        DP_PROJDOWN + ".filedata", "",
         DP_PROJDOWN + ".restartproj", false,
         DP_PROJDOWN + ".status", rc
         );
     if (rc == 0)
     {
       configEnv();
+      install();
       postDeploy();
       if (restartproj)
       {
@@ -47,11 +49,32 @@ cbData(string dp1, bool command, string dp2, blob filedata, string dp3, bool res
 	}
 }
 
+systemCommand(string command)
+{
+  string drive = substr(PROJ_PATH, 0, 2);
+  string path = substr(PROJ_PATH, 2);
+  system(drive + " && cd " + path + " && " + command);
+}
+
 configEnv()
 {
   if (isfile(CONFIG_ENV_FILE))
   {
-    system(CONFIG_ENV_FILE);
+    systemCommand(CONFIG_ENV_FILE);
+  }
+}
+
+/* execute install.bat if exists
+
+   install.bat can contain multiple ASCII command line
+   ex: "WCCOAasciiSQLite -currentproj -in dplist/update_YYYYmmdd/*.dpl"
+*/
+install()
+{
+  if (isfile(INSTALL_FILE))
+  {
+    systemCommand(INSTALL_FILE);
+    remove(INSTALL_FILE);
   }
 }
 
@@ -61,6 +84,7 @@ postDeploy()
   {
     string res;
     fileToString(PMON_DEPLOY_FILE, res);
+    remove(PMON_DEPLOY_FILE);
     if (res != "")
     {
       dyn_string parts = res.split("\n");
