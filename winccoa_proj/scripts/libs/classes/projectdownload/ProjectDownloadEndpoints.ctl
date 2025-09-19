@@ -38,17 +38,32 @@ class ProjectDownloadHttpEndpoints
     }
     DebugTN("httpConnect", URL_BASE);
     httpConnect(mainPage, URL_BASE);
-    httpConnect(handleRequest, URL_BASE + "/download");
+    httpConnect(handleRequestDownload, URL_BASE + "/download");
+    httpConnect(handleRequestRestart, URL_BASE + "/restart");
+    httpConnect(handleRequestPmon, URL_BASE + "/pmon");
   }
 
-  static void handleRequest(blob content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
+  static void handleRequestRestart(string content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
   {
-    DebugTN("handlRequest", content, user, ip, headernames, headervalues);
+    mapping obj = jsonDecode(content);
+    if (obj.restart)
+    {
+      dyn_string dps = dpNames("*", DPT_PROJDOWN);
+      for (int i = 1; i <= dynlen(dps); i++)
+      {
+  	    dpSet(dps[i] + ".restartproj", true);
+      }
+    }
+  }
+
+  static void handleRequestDownload(blob content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
+  {
+//    DebugTN("handleRequestDownload", content, user, ip, headernames, headervalues);
     int pos =0;
     int len = bloblen(content);
     string val;
     blobGetValue(content,pos,val,len);
-    DebugTN(val);
+    //DebugTN(val);
     string contentType = httpGetHeader(connIdx, "Content-Type");
     int pos = strpos(contentType, "boundary=");
   // Returns the string boundary= from the string "contentType
@@ -105,6 +120,26 @@ class ProjectDownloadHttpEndpoints
     string res;
     fileToString(PROJ_PATH + DATA_REL_PATH + "html/proj.html", res);
     return res;
+  }
+
+  static string handleRequestPmon()
+  {
+    dyn_string dps = dpNames("*", DPT_PROJDOWN);
+    dyn_string dpes;
+    for (int i = 1; i <= dynlen(dps); i++)
+    {
+      dpes[i] = dps[i] + ".pmon";
+    }
+    dyn_string values;
+    dpGet(dpes, values);
+    mapping res;
+    res["instances"] = makeDynMapping();
+    for (int i = 1; i <= dynlen(dpes); i++)
+    {
+      mapping obj = jsonDecode(values[i]);
+      dynAppend(res["instances"], obj);
+    }
+    return jsonEncode(res);
   }
 
 
