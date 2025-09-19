@@ -1,12 +1,12 @@
-# WinCC OA Project download
+# WinCC OA Project manager
 
-A lightweight http handler for project download.
+A lightweight http handler for project management.
 
-![Para page](assets/main.png)
 
 
 ## 🚀 Features
 
+### Download tab
 - web page allowing you to download a ZIP file
 - automatic decompression of ZIP in the project tree
 - option to restart the project after download
@@ -15,7 +15,16 @@ A lightweight http handler for project download.
 - special file ``pmondeploy.txt`` allows to define special commands for WCCILpmon (restart a manager) at the end of download
 - handle multiple servers in case of remote managers by using a datapoint to distribute the ZIP file to each servers.
 
+![Download tab](assets/downloadTab.png)
 
+### Console tab
+- web page display winccoa console with manager's data
+- button to restart the project
+
+![Download tab](assets/consoleTab.png)
+
+### Log Viewer tab
+- coming soon ... will be merged from https://github.com/orelmi/winccoa_logviewer
 
 ## 🛠️ Installation
 
@@ -27,14 +36,18 @@ A lightweight http handler for project download.
 
 3. Add Control Manager with options ```webclient_http.ctl```
 
+4. Add Control Manager with options ```projectdownload.ctl PROJ_SRV_A -num 98```. In case of remote projects take care to use different names of datapoint and man num in command line
+
 ## 📄 Usage
 
-To use the log viewer:
+To use the project management :
 
 1. Open URL https://localhost/project in any modern browser (Chrome, Firefox, Edge).
-2. The page displays the form to download ZIP to the WinCC OA Server
-3. Select a file
-4. Click on submit
+2. The page displays the management page
+3. Download tab :
+   * Select a file
+   * Click on submit
+4. Console tab
 
 ## Technical details
 
@@ -76,11 +89,10 @@ projectdownload.ctl in the Console
 1. Download directly from Gedi (menu extension).
 2. Add options to keep or replace database.
 3. Add pmon authentication to secure project download.
-4. Add console view in html page.
-5. Support of redundancy.
-6. Support of distributed systems.
-7. Improve UI/UX.
-8. Become native feature of WinCC OA installation !
+4. Support of redundancy.
+5. Support of distributed systems.
+6. Improve UI/UX.
+7. Become native feature of WinCC OA installation !
 
 ## Author
 
