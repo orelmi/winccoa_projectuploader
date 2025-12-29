@@ -67,6 +67,7 @@ main(string arg)
 	}
 	delay(0, 500);
 	dpConnect("cbData", false, DP_PROJDOWN + ".command", DP_PROJDOWN + ".filedata", DP_PROJDOWN + ".restartproj");
+  dpConnect("cbManagerCmd", false, DP_PROJDOWN + ".managerCmd");
 
   sysConnect("cbExitRequested", "exitRequested");
 
@@ -193,6 +194,62 @@ restartProject()
   pmon_command("##RESTART_ALL:", "localhost", pmonPort(), false, true);
 }
 
+/**
+ * Callback for manager control commands
+ * @param dp1 Datapoint element path
+ * @param managerCmdJson JSON string with action and shmId
+ */
+cbManagerCmd(string dp1, string managerCmdJson)
+{
+  if (managerCmdJson == "")
+  {
+    return;
+  }
+
+  DebugTN("Manager command received:", managerCmdJson);
+
+  mapping cmd = jsonDecode(managerCmdJson);
+  string action = cmd["action"];
+  int shmId = cmd["shmId"];
+
+  // pmon uses 0-based index, shmId is 1-based
+  int pmonIndex = shmId - 1;
+  int rc;
+
+  if (action == "start")
+  {
+    string pmonCmd = "##SINGLE_MGR:START " + pmonIndex;
+    DebugTN("Executing pmon command:", pmonCmd);
+    rc = pmon_command(pmonCmd, "localhost", pmonPort(), false, true);
+  }
+  else if (action == "stop")
+  {
+    string pmonCmd = "##SINGLE_MGR:STOP " + pmonIndex;
+    DebugTN("Executing pmon command:", pmonCmd);
+    rc = pmon_command(pmonCmd, "localhost", pmonPort(), false, true);
+  }
+  else if (action == "restart")
+  {
+    // Restart = STOP + START
+    string stopCmd = "##SINGLE_MGR:STOP " + pmonIndex;
+    DebugTN("Executing pmon command:", stopCmd);
+    rc = pmon_command(stopCmd, "localhost", pmonPort(), false, true);
+
+    if (rc == 0)
+    {
+      delay(2);
+      string startCmd = "##SINGLE_MGR:START " + pmonIndex;
+      DebugTN("Executing pmon command:", startCmd);
+      rc = pmon_command(startCmd, "localhost", pmonPort(), false, true);
+    }
+  }
+
+  DebugTN("Manager command result:", rc);
+
+  // Clear the command after execution
+  dpSet(DP_PROJDOWN + ".managerCmd", "");
+}
+
 initDpType(bool create)
 {
 	dyn_dyn_string xxdepes;
@@ -207,6 +264,7 @@ initDpType(bool create)
   xxdepes[8] = makeDynString ("","lastFileName","","");
   xxdepes[9] = makeDynString ("","lastFileSize","","");
   xxdepes[10] = makeDynString ("","lastUser","","");
+  xxdepes[11] = makeDynString ("","managerCmd","","");  // JSON: {"action":"start|stop|restart", "shmId":<int>}
 	xxdepei[1] = makeDynInt (DPEL_STRUCT);
 	xxdepei[2] = makeDynInt (0,DPEL_BLOB);
 	xxdepei[3] = makeDynInt (0,DPEL_INT);
@@ -217,6 +275,7 @@ initDpType(bool create)
   xxdepei[8] = makeDynInt (0,DPEL_STRING);
   xxdepei[9] = makeDynInt (0,DPEL_INT);
   xxdepei[10] = makeDynInt (0,DPEL_STRING);
+  xxdepei[11] = makeDynInt (0,DPEL_STRING);
   if (create)
   {
   	dpTypeCreate(xxdepes,xxdepei);

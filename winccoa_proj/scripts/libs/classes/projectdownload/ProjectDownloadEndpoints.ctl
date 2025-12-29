@@ -114,10 +114,11 @@ class ProjectDownloadHttpEndpoints
     DebugTN("httpConnect", URL_BASE);
     httpConnect(mainPage, URL_BASE);
     httpConnect(handleRequestDownload, URL_BASE + "/download");
-    httpConnect(handleRequestRestart, URL_BASE + "/restart");
-    httpConnect(handleRequestPmon, URL_BASE + "/pmon");
-    httpConnect(handleRequestCsrfToken, URL_BASE + "/csrf-token");
-    httpConnect(handleRequestHistory, URL_BASE + "/history");
+    httpConnect(handleRequestRestart, URL_BASE + "/restart", "application/json");
+    httpConnect(handleRequestPmon, URL_BASE + "/pmon", "application/json");
+    httpConnect(handleRequestCsrfToken, URL_BASE + "/csrftoken", "application/json");
+    httpConnect(handleRequestHistory, URL_BASE + "/history", "application/json");
+    httpConnect(handleRequestManagerCommand, URL_BASE + "/manager", "application/json");
 
     // Static file endpoints for CSS and JS
     httpConnect(serveStyleCss, URL_BASE + "/css/style.css", "text/css");
@@ -155,27 +156,162 @@ class ProjectDownloadHttpEndpoints
     DebugTN("WebSocket: Subscribed to pmon changes on", dynlen(pmonDpes), "datapoints");
   }
 
-  static void handleRequestRestart(string content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
+  static string handleRequestRestart(blob content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
   {
-    mapping obj = jsonDecode(content);
+    // Decode blob content to string
+    int pos = 0;
+    int len = bloblen(content);
+    string contentStr;
+    blobGetValue(content, pos, contentStr, len);
+
+    mapping obj = jsonDecode(contentStr);
+    mapping response;
 
     // CSRF validation
     string csrfToken = obj["csrfToken"];
     if (!validateCsrfToken(csrfToken))
     {
       DebugTN("SECURITY: CSRF validation failed for restart request from", ip);
-      httpSetResponseStatus(connIdx, 403, "Forbidden - Invalid CSRF token");
-      return;
+      response["success"] = false;
+      response["error"] = "Invalid CSRF token";
+      return jsonEncode(response);
     }
 
-    if (obj.restart)
+    if (obj["restart"])
     {
+      string targetHostname = obj["hostname"];
       dyn_string dps = dpNames("*", DPT_PROJDOWN);
+      int restartCount = 0;
+
       for (int i = 1; i <= dynlen(dps); i++)
       {
-  	    dpSet(dps[i] + ".restartproj", true);
+        // If hostname specified, only restart that instance
+        if (targetHostname != "")
+        {
+          string pmonJson;
+          dpGet(dps[i] + ".pmon", pmonJson);
+          if (pmonJson != "")
+          {
+            mapping pmonData = jsonDecode(pmonJson);
+            if (pmonData["hostname"] == targetHostname)
+            {
+              dpSet(dps[i] + ".restartproj", true);
+              restartCount++;
+              DebugTN("Restart command sent to instance:", targetHostname);
+            }
+          }
+        }
+        else
+        {
+          // Restart all instances
+          dpSet(dps[i] + ".restartproj", true);
+          restartCount++;
+        }
+      }
+
+      response["success"] = true;
+      response["message"] = "Restart command sent to " + restartCount + " instance(s)";
+      response["count"] = restartCount;
+    }
+    else
+    {
+      response["success"] = false;
+      response["error"] = "No restart command specified";
+    }
+
+    return jsonEncode(response);
+  }
+
+  /**
+   * Handle manager control commands (start, stop, restart individual managers)
+   * Expected JSON body: { "action": "start|stop|restart", "shmId": <int>, "hostname": "<string>", "csrfToken": "<token>" }
+   */
+  static string handleRequestManagerCommand(blob content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
+  {
+    // Decode blob content to string
+    int pos = 0;
+    int len = bloblen(content);
+    string contentStr;
+    blobGetValue(content, pos, contentStr, len);
+
+    DebugTN("handleRequestManagerCommand received content length:", len);
+    DebugTN("handleRequestManagerCommand content:", contentStr);
+
+    mapping response;
+
+    // Check if content is empty
+    if (contentStr == "" || strlen(contentStr) == 0)
+    {
+      DebugTN("ERROR: Empty content received");
+      response["success"] = false;
+      response["error"] = "Empty request body";
+      return jsonEncode(response);
+    }
+
+    mapping obj = jsonDecode(contentStr);
+
+    // CSRF validation
+    string csrfToken = obj["csrfToken"];
+    if (!validateCsrfToken(csrfToken))
+    {
+      DebugTN("SECURITY: CSRF validation failed for manager command from", ip);
+      response["success"] = false;
+      response["error"] = "Invalid CSRF token";
+      return jsonEncode(response);
+    }
+
+    string action = obj["action"];
+    int shmId = obj["shmId"];
+    string targetHostname = obj["hostname"];
+
+    // Validate action
+    if (action != "start" && action != "stop" && action != "restart")
+    {
+      DebugTN("SECURITY: Invalid manager action from", ip, ":", action);
+      response["success"] = false;
+      response["error"] = "Invalid action. Use: start, stop, or restart";
+      return jsonEncode(response);
+    }
+
+    // Find the target datapoint by hostname
+    dyn_string dps = dpNames("*", DPT_PROJDOWN);
+    string targetDp = "";
+
+    for (int i = 1; i <= dynlen(dps); i++)
+    {
+      string pmonJson;
+      dpGet(dps[i] + ".pmon", pmonJson);
+      if (pmonJson != "")
+      {
+        mapping pmonData = jsonDecode(pmonJson);
+        if (pmonData["hostname"] == targetHostname)
+        {
+          targetDp = dps[i];
+          break;
+        }
       }
     }
+
+    if (targetDp == "")
+    {
+      DebugTN("ERROR: No instance found for hostname:", targetHostname);
+      response["success"] = false;
+      response["error"] = "Instance not found: " + targetHostname;
+      return jsonEncode(response);
+    }
+
+    // Build command JSON and write to target instance DP
+    mapping cmdData;
+    cmdData["action"] = action;
+    cmdData["shmId"] = shmId;
+
+    DebugTN("Sending manager command to", targetDp, ":", jsonEncode(cmdData));
+    dpSet(targetDp + ".managerCmd", jsonEncode(cmdData));
+
+    response["success"] = true;
+    response["message"] = "Command sent: " + action + " manager " + shmId + " on " + targetHostname;
+
+    return jsonEncode(response);
   }
 
   static void handleRequestDownload(blob content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
@@ -589,11 +725,14 @@ class ProjectDownloadHttpEndpoints
    */
   static string handleRequestCsrfToken()
   {
+    DebugTN("handleRequestCsrfToken called");
     string token = generateCsrfToken();
     mapping response;
     response["csrfToken"] = token;
     response["expiresIn"] = CSRF_TOKEN_EXPIRY_SECONDS;
-    return jsonEncode(response);
+    string result = jsonEncode(response);
+    DebugTN("handleRequestCsrfToken returning:", result);
+    return result;
   }
 
   /**
@@ -610,7 +749,9 @@ class ProjectDownloadHttpEndpoints
     for (int i = 0; i < CSRF_TOKEN_LENGTH; i++)
     {
       int randomByte = rand() % 256;
-      token += sprintf("%02x", randomByte);
+      string buf;
+      sprintf(buf, "%02x", randomByte);
+      token += buf;
     }
 
     // Store token with expiry time

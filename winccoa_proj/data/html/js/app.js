@@ -54,8 +54,9 @@ async function requestNotificationPermission() {
  * Initialize WebSocket connection for real-time updates
  */
 function initWebSocket() {
-    if (_websocket && _websocket.readyState === WebSocket.OPEN) {
-        console.log('[WS] Already connected');
+    // Check if already connected or connecting
+    if (_websocket && (_websocket.readyState === WebSocket.OPEN || _websocket.readyState === WebSocket.CONNECTING)) {
+        console.log('[WS] Already connected or connecting');
         return;
     }
 
@@ -257,6 +258,16 @@ function handlePmonUpdate(data) {
         const tabsContainer = document.getElementById('instanceTabsContainer');
         const contentContainer = document.getElementById('instanceContentContainer');
 
+        // Add RESTART ALL button if multiple instances
+        if (instances.length > 1) {
+            const restartAllBtn = document.createElement('button');
+            restartAllBtn.className = 'btn-restart-all';
+            restartAllBtn.innerHTML = '&#8635; Restart All Instances';
+            restartAllBtn.title = 'Restart all project instances';
+            restartAllBtn.onclick = () => confirmRestartAllInstances(instances);
+            tabsContainer.appendChild(restartAllBtn);
+        }
+
         instances.forEach((instance, index) => {
             const tabButton = document.createElement('button');
             tabButton.textContent = instance.hostname || 'Instance ' + (index + 1);
@@ -268,6 +279,24 @@ function handlePmonUpdate(data) {
             const contentDiv = document.createElement('div');
             contentDiv.id = 'instanceContent' + index;
             contentDiv.style.display = index === 0 ? 'block' : 'none';
+
+            // Add instance header with restart button
+            const instanceHeader = document.createElement('div');
+            instanceHeader.className = 'instance-header';
+
+            const instanceTitle = document.createElement('span');
+            instanceTitle.className = 'instance-title';
+            instanceTitle.textContent = instance.projectName || instance.hostname || 'Instance ' + (index + 1);
+
+            const restartInstanceBtn = document.createElement('button');
+            restartInstanceBtn.className = 'btn-restart-instance';
+            restartInstanceBtn.innerHTML = '&#8635; Restart Instance';
+            restartInstanceBtn.title = 'Restart all managers on this instance';
+            restartInstanceBtn.onclick = () => confirmRestartInstance(instance.hostname);
+
+            instanceHeader.appendChild(instanceTitle);
+            instanceHeader.appendChild(restartInstanceBtn);
+            contentDiv.appendChild(instanceHeader);
 
             const table = createManagerTable(instance);
             contentDiv.appendChild(table);
@@ -836,86 +865,6 @@ function clearInstanceTabs() {
     }
 }
 
-/**
- * Send restart command to all project instances
- */
-async function restartProject() {
-    // Get a valid CSRF token
-    const csrfToken = await getCsrfToken();
-    if (!csrfToken) {
-        alert("Security error: Could not obtain CSRF token. Please refresh the page.");
-        return;
-    }
-
-    try {
-        const response = await fetch("/project/restart", {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "restart": true,
-                "csrfToken": csrfToken
-            })
-        });
-
-        if (response.ok) {
-            const result = await response.text();
-            alert("Restart command acknowledge: " + result);
-            // Refresh CSRF token after successful submission
-            await refreshCsrfToken();
-        } else if (response.status === 403) {
-            alert("Security error: Invalid or expired CSRF token. Please try again.");
-            await refreshCsrfToken();
-        } else {
-            alert("Restart failed: " + response.statusText);
-        }
-
-    } catch (error) {
-        alert("Error: " + error.message);
-    }
-}
-
-/**
- * Fetch and display pmon status for all instances
- */
-function refreshStatus() {
-    fetch('/project/pmon')
-        .then(response => response.json())
-        .then(data => {
-            clearInstanceTabs();
-            updateLastRefreshTime();
-
-            const instances = data.instances;
-            const tabsContainer = document.getElementById('instanceTabsContainer');
-            const contentContainer = document.getElementById('instanceContentContainer');
-
-            // Create tabs for each instance
-            instances.forEach((instance, index) => {
-                const tabButton = document.createElement('button');
-                tabButton.textContent = instance.hostname || 'Instance ' + (index + 1);
-                tabButton.className = 'instance-tab-button';
-                if (index === 0) {
-                    tabButton.classList.add('active');
-                }
-                tabButton.onclick = () => showInstanceContent(index, instances.length);
-                tabsContainer.appendChild(tabButton);
-
-                // Create content div for each instance
-                const contentDiv = document.createElement('div');
-                contentDiv.id = 'instanceContent' + index;
-                contentDiv.style.display = index === 0 ? 'block' : 'none';
-
-                // Create table for programs
-                const table = createManagerTable(instance);
-                contentDiv.appendChild(table);
-                contentContainer.appendChild(contentDiv);
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching instances:', error);
-        });
-}
 
 /**
  * Create a table displaying manager information
@@ -927,25 +876,39 @@ function createManagerTable(instance) {
     table.border = '1';
 
     const headerRow = document.createElement('tr');
-    const headers = ['manager', 'resetMin', 'startMode', 'secKill', 'state', 'pid', 'restartCount', 'startTime', 'manNum', 'shmId', 'commandlineOptions'];
+    const headers = ['manager', 'state', 'pid', 'startMode', 'restartCount', 'startTime', 'manNum', 'actions'];
 
     headers.forEach(header => {
         const th = document.createElement('th');
-        th.textContent = header;
+        th.textContent = header === 'actions' ? 'Actions' : header;
         headerRow.appendChild(th);
     });
     table.appendChild(headerRow);
+
+    // Get hostname for this instance
+    const hostname = instance.hostname || '';
 
     if (instance.progs) {
         instance.progs.forEach(prog => {
             const row = document.createElement('tr');
             headers.forEach(header => {
                 const td = document.createElement('td');
-                const value = prog[header] || '';
-                if (header === 'state') {
-                    td.setAttribute('data-state', value);
+
+                if (header === 'actions') {
+                    // Create action buttons with hostname (skip for WCCILpmon)
+                    td.className = 'manager-actions';
+                    const managerName = prog.manager || '';
+                    if (!managerName.includes('WCCILpmon')) {
+                        td.appendChild(createManagerActionButtons(prog.shmId, prog.state, hostname, managerName));
+                    }
+                } else {
+                    const value = prog[header] || '';
+                    if (header === 'state') {
+                        td.setAttribute('data-state', value);
+                        td.className = 'state-cell';
+                    }
+                    td.textContent = value;
                 }
-                td.textContent = value;
                 row.appendChild(td);
             });
             table.appendChild(row);
@@ -953,6 +916,242 @@ function createManagerTable(instance) {
     }
 
     return table;
+}
+
+/**
+ * Create action buttons for a manager row
+ * @param {number} shmId - Manager shared memory ID (index in pmon list)
+ * @param {string} state - Current manager state
+ * @param {string} hostname - Hostname of the instance
+ * @param {string} managerName - Name of the manager
+ * @returns {HTMLDivElement} - Container with action buttons
+ */
+function createManagerActionButtons(shmId, state, hostname, managerName) {
+    const container = document.createElement('div');
+    container.className = 'action-buttons';
+
+    const isRunning = state && state.toLowerCase() === 'running';
+    const isStopped = state && (state.toLowerCase() === 'stopped' || state.toLowerCase() === 'initialized');
+
+    // Start button
+    const startBtn = document.createElement('button');
+    startBtn.className = 'btn-action btn-start';
+    startBtn.innerHTML = '&#9654;'; // Play symbol
+    startBtn.title = 'Start manager';
+    startBtn.disabled = isRunning;
+    startBtn.onclick = () => confirmManagerCommand('start', shmId, hostname, managerName);
+
+    // Stop button
+    const stopBtn = document.createElement('button');
+    stopBtn.className = 'btn-action btn-stop';
+    stopBtn.innerHTML = '&#9632;'; // Stop symbol
+    stopBtn.title = 'Stop manager';
+    stopBtn.disabled = isStopped;
+    stopBtn.onclick = () => confirmManagerCommand('stop', shmId, hostname, managerName);
+
+    // Restart button
+    const restartBtn = document.createElement('button');
+    restartBtn.className = 'btn-action btn-restart';
+    restartBtn.innerHTML = '&#8635;'; // Refresh symbol
+    restartBtn.title = 'Restart manager';
+    restartBtn.onclick = () => confirmManagerCommand('restart', shmId, hostname, managerName);
+
+    container.appendChild(startBtn);
+    container.appendChild(stopBtn);
+    container.appendChild(restartBtn);
+
+    return container;
+}
+
+/**
+ * Show confirmation dialog before executing manager command
+ * @param {string} action - Action to perform
+ * @param {number} shmId - Manager shared memory ID
+ * @param {string} hostname - Hostname of the instance
+ * @param {string} managerName - Name of the manager
+ */
+function confirmManagerCommand(action, shmId, hostname, managerName) {
+    const actionLabels = {
+        'start': 'START',
+        'stop': 'STOP',
+        'restart': 'RESTART'
+    };
+
+    const message = `Are you sure you want to ${actionLabels[action]} the manager "${managerName}" on ${hostname}?`;
+
+    if (confirm(message)) {
+        sendManagerCommand(action, shmId, hostname);
+    }
+}
+
+/**
+ * Show confirmation dialog before restarting an instance
+ * @param {string} hostname - Hostname of the instance to restart
+ */
+function confirmRestartInstance(hostname) {
+    const message = `Are you sure you want to RESTART ALL MANAGERS on instance "${hostname}"?\n\nThis will temporarily interrupt all services on this instance.`;
+
+    if (confirm(message)) {
+        restartInstance(hostname);
+    }
+}
+
+/**
+ * Show confirmation dialog before restarting all instances
+ * @param {Array} instances - Array of all instances
+ */
+function confirmRestartAllInstances(instances) {
+    const hostnames = instances.map(i => i.hostname || 'Unknown').join(', ');
+    const message = `Are you sure you want to RESTART ALL MANAGERS on ALL INSTANCES?\n\nThis will restart the following instances:\n${hostnames}\n\nThis will temporarily interrupt all services.`;
+
+    if (confirm(message)) {
+        restartAllInstances(instances);
+    }
+}
+
+/**
+ * Restart all managers on a specific instance
+ * @param {string} hostname - Hostname of the instance to restart
+ */
+async function restartInstance(hostname) {
+    const csrfToken = await getCsrfToken();
+    if (!csrfToken) {
+        showToast('error', 'Error', 'No CSRF token available');
+        return;
+    }
+
+    showToast('info', 'Instance Restart', `Restarting all managers on ${hostname}...`);
+
+    try {
+        const response = await fetch('/project/restart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                restart: true,
+                hostname: hostname,
+                csrfToken: csrfToken
+            })
+        });
+
+        await refreshCsrfToken();
+
+        if (response.ok) {
+            showToast('success', 'Instance Restart', `Restart command sent to ${hostname}`);
+        } else if (response.status === 403) {
+            showToast('error', 'Security Error', 'Invalid or expired CSRF token');
+        } else {
+            showToast('error', 'Restart Failed', response.statusText);
+        }
+    } catch (error) {
+        showToast('error', 'Restart Failed', 'Network error: ' + error.message);
+    }
+}
+
+/**
+ * Restart all managers on all instances
+ * @param {Array} instances - Array of all instances
+ */
+async function restartAllInstances(instances) {
+    showToast('info', 'Restart All', `Restarting ${instances.length} instances...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const instance of instances) {
+        const hostname = instance.hostname;
+        if (!hostname) continue;
+
+        const csrfToken = await getCsrfToken();
+        if (!csrfToken) {
+            failCount++;
+            continue;
+        }
+
+        try {
+            const response = await fetch('/project/restart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    restart: true,
+                    hostname: hostname,
+                    csrfToken: csrfToken
+                })
+            });
+
+            await refreshCsrfToken();
+
+            if (response.ok) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        } catch (error) {
+            failCount++;
+        }
+    }
+
+    if (failCount === 0) {
+        showToast('success', 'Restart All', `All ${successCount} instances restarting`);
+    } else {
+        showToast('warning', 'Restart All', `${successCount} succeeded, ${failCount} failed`);
+    }
+}
+
+/**
+ * Send a manager control command to the server
+ * @param {string} action - Action to perform: 'start', 'stop', or 'restart'
+ * @param {number} shmId - Manager shared memory ID (index in pmon list)
+ * @param {string} hostname - Hostname of the target instance
+ */
+async function sendManagerCommand(action, shmId, hostname) {
+    // Get a valid CSRF token
+    const csrfToken = await getCsrfToken();
+
+    if (!csrfToken) {
+        showToast('error', 'Error', 'No CSRF token available');
+        return;
+    }
+
+    const actionLabels = {
+        'start': 'Starting',
+        'stop': 'Stopping',
+        'restart': 'Restarting'
+    };
+
+    showToast('info', 'Manager Control', `${actionLabels[action]} manager ${shmId} on ${hostname}...`);
+
+    try {
+        const response = await fetch('/project/manager', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: action,
+                shmId: shmId,
+                hostname: hostname,
+                csrfToken: csrfToken
+            })
+        });
+
+        // Token was used, fetch a new one
+        await refreshCsrfToken();
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('success', 'Manager Control', result.message);
+        } else {
+            showToast('error', 'Manager Control Failed', result.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Manager command error:', error);
+        showToast('error', 'Manager Control Failed', 'Network error: ' + error.message);
+    }
 }
 
 /**
@@ -997,9 +1196,12 @@ function updateLastRefreshTime() {
  */
 async function fetchCsrfToken() {
     try {
-        const response = await fetch('/project/csrf-token');
-        if (response.ok) {
-            const data = await response.json();
+        const response = await fetch('/project/csrftoken');
+        const text = await response.text();
+        console.log('CSRF response status:', response.status, 'body:', text);
+
+        if (response.ok && text) {
+            const data = JSON.parse(text);
             _csrfToken = data.csrfToken;
             _csrfTokenExpiry = Date.now() + (data.expiresIn * 1000);
             updateCsrfTokenDisplay();
@@ -1061,7 +1263,8 @@ function checkServerAvailability() {
             document.getElementById("serverModal").style.display = "none";
 
             if (!_serverAvailable) {
-                refreshStatus();
+                // Reconnect WebSocket when server becomes available
+                initWebSocket();
             }
             _serverAvailable = true;
 
@@ -1656,12 +1859,11 @@ async function uploadZipFile(file) {
  */
 document.addEventListener("DOMContentLoaded", async function() {
     toggleNotice();
-    refreshStatus();
     refreshHistory();
     initLogViewer();
     // Fetch initial CSRF token
     await fetchCsrfToken();
-    // Initialize WebSocket for real-time updates
+    // Initialize WebSocket for real-time updates (also handles pmon status)
     initWebSocket();
 });
 

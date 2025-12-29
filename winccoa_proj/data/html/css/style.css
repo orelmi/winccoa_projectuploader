@@ -609,6 +609,149 @@ td[data-state="2"] {
 }
 
 /* ==========================================================================
+   Manager Action Buttons
+   ========================================================================== */
+
+.manager-actions {
+    white-space: nowrap;
+    text-align: center;
+}
+
+.action-buttons {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.btn-action {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--theme-color-std-bdr);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.btn-action:hover:not(:disabled) {
+    border-color: var(--theme-color-primary);
+    background-color: var(--theme-color-ghost--active);
+}
+
+.btn-action:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.btn-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-start:hover:not(:disabled) {
+    color: var(--theme-color-success);
+    border-color: var(--theme-color-success);
+}
+
+.btn-stop:hover:not(:disabled) {
+    color: var(--theme-color-alarm);
+    border-color: var(--theme-color-alarm);
+}
+
+.btn-restart:hover:not(:disabled) {
+    color: var(--theme-color-warning);
+    border-color: var(--theme-color-warning);
+}
+
+/* Instance header with restart button */
+.instance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    background-color: var(--theme-color-1);
+    border-radius: 8px;
+    border: 1px solid var(--theme-color-std-bdr);
+}
+
+.instance-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--theme-color-std-text);
+}
+
+/* Instance restart button */
+.btn-restart-instance {
+    padding: 8px 16px;
+    border: 1px solid var(--theme-color-warning);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-warning);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.btn-restart-instance:hover {
+    background-color: var(--theme-color-warning);
+    color: var(--theme-color-primary-contrast);
+}
+
+.btn-restart-instance:active {
+    transform: scale(0.98);
+}
+
+/* Restart all instances button */
+.btn-restart-all {
+    padding: 8px 16px;
+    margin-right: 16px;
+    border: 2px solid var(--theme-color-alarm);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-alarm);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.btn-restart-all:hover {
+    background-color: var(--theme-color-alarm);
+    color: var(--theme-color-primary-contrast);
+}
+
+.btn-restart-all:active {
+    transform: scale(0.98);
+}
+
+/* State cell styling */
+.state-cell[data-state="running"],
+.state-cell[data-state="Running"] {
+    color: var(--theme-color-success);
+    font-weight: 600;
+}
+
+.state-cell[data-state="stopped"],
+.state-cell[data-state="Stopped"],
+.state-cell[data-state="initialized"],
+.state-cell[data-state="Initialized"] {
+    color: var(--theme-color-soft-text);
+}
+
+.state-cell[data-state="starting"],
+.state-cell[data-state="Starting"],
+.state-cell[data-state="stopping"],
+.state-cell[data-state="Stopping"] {
+    color: var(--theme-color-warning);
+}
+
+/* ==========================================================================
    Modals - Siemens iX Modal/Dialog Style
    ========================================================================== */
 
