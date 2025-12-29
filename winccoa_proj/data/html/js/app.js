@@ -4,6 +4,45 @@
  */
 
 /* ==========================================================================
+   Debug Configuration
+   ========================================================================== */
+
+/**
+ * Debug flags - set to true to enable console logging for specific features
+ * Can be toggled at runtime via browser console: DEBUG_WEBSOCKET = true;
+ */
+let DEBUG_WEBSOCKET = false;
+let DEBUG_LOGVIEWER = false;
+
+/**
+ * Conditional WebSocket debug logging
+ * @param  {...any} args - Arguments to log
+ */
+function wsLog(...args) {
+    if (DEBUG_WEBSOCKET) {
+        console.log('[WS]', ...args);
+    }
+}
+
+/**
+ * Conditional WebSocket error logging (always shown)
+ * @param  {...any} args - Arguments to log
+ */
+function wsError(...args) {
+    console.error('[WS]', ...args);
+}
+
+/**
+ * Conditional Log Viewer debug logging
+ * @param  {...any} args - Arguments to log
+ */
+function logViewerLog(...args) {
+    if (DEBUG_LOGVIEWER) {
+        console.log('[Log]', ...args);
+    }
+}
+
+/* ==========================================================================
    Global State
    ========================================================================== */
 
@@ -47,6 +86,148 @@ async function requestNotificationPermission() {
 }
 
 /* ==========================================================================
+   Compression Utilities
+   ========================================================================== */
+
+/**
+ * Decompress gzip/deflate-compressed base64 data
+ * @param {string} base64Data - Base64-encoded compressed data
+ * @param {string} format - Compression format: 'gzip', 'deflate', or 'deflate-raw'
+ * @returns {Promise<Object>} - Decompressed and parsed JSON object
+ */
+async function decompressGzipData(base64Data, format = 'gzip') {
+    if (!base64Data || base64Data.length === 0) {
+        throw new Error('Empty base64 data received');
+    }
+
+    // Decode base64 to binary
+    let binaryString;
+    try {
+        binaryString = atob(base64Data);
+    } catch (e) {
+        wsError('Base64 decode failed:', e.message);
+        throw e;
+    }
+
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Log first bytes to identify format
+    // gzip: 1f 8b, zlib: 78 9c/78 da/78 01, raw deflate: varies
+    const header = Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    wsLog('Compressed data header (hex):', header, '- size:', bytes.length);
+
+    // Detect format from header bytes
+    let detectedFormat = format;
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+        detectedFormat = 'gzip';
+    } else if (bytes[0] === 0x78) {
+        // zlib header (78 01, 78 9c, 78 da)
+        detectedFormat = 'deflate';
+    } else {
+        // No recognized header - likely raw deflate
+        detectedFormat = 'deflate-raw';
+    }
+
+    // Try detected format first, then fallbacks
+    const formats = [detectedFormat];
+    if (detectedFormat !== 'gzip') formats.push('gzip');
+    if (detectedFormat !== 'deflate') formats.push('deflate');
+    if (detectedFormat !== 'deflate-raw') formats.push('deflate-raw');
+
+    let lastError = null;
+
+    for (const fmt of formats) {
+        try {
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(bytes);
+                    controller.close();
+                }
+            });
+
+            const decompressedStream = stream.pipeThrough(new DecompressionStream(fmt));
+            const reader = decompressedStream.getReader();
+            const chunks = [];
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+            }
+
+            // Combine chunks
+            const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+
+            if (totalLength === 0) {
+                throw new Error('Decompressed to empty data');
+            }
+
+            const combined = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const chunk of chunks) {
+                combined.set(chunk, offset);
+                offset += chunk.length;
+            }
+
+            // Debug: show raw decompressed bytes
+            wsLog('Decompressed', totalLength, 'bytes. First 100 bytes (hex):',
+                Array.from(combined.slice(0, 100)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+
+            // Try different encodings - WinCC OA may use UTF-16LE internally
+            const encodings = ['utf-8', 'utf-16le', 'utf-16be', 'iso-8859-1'];
+
+            for (const encoding of encodings) {
+                try {
+                    const decoder = new TextDecoder(encoding);
+                    const jsonString = decoder.decode(combined);
+
+                    // Debug: show what each encoding produces
+                    wsLog('Trying', encoding, '- first 100 chars:', jsonString.substring(0, 100));
+
+                    if (jsonString && jsonString.length > 0) {
+                        // Check if it looks like valid JSON
+                        const trimmed = jsonString.trim();
+                        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                            wsLog('Decompression OK with', fmt, 'encoding:', encoding, '- size:', totalLength);
+                            return JSON.parse(jsonString);
+                        }
+                    }
+                } catch (decodeErr) {
+                    wsLog('Encoding', encoding, 'failed:', decodeErr.message);
+                }
+            }
+
+            // If no encoding worked, log the raw bytes for debugging
+            wsError('Could not decode with any encoding. First 100 bytes:',
+                Array.from(combined.slice(0, 100)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+            throw new Error('Failed to decode decompressed data');
+        } catch (e) {
+            lastError = e;
+            // Only log on final failure to reduce noise
+        }
+    }
+
+    wsError('All decompression formats failed. Header:', header);
+    throw lastError || new Error('All decompression formats failed');
+}
+
+/**
+ * Check if a message is compressed and decompress if needed
+ * @param {Object} data - Parsed JSON message from WebSocket
+ * @returns {Promise<Object>} - Decompressed data or original data
+ */
+async function handleCompressedMessage(data) {
+    if (data.compressed && data.encoding === 'gzip' && data.data) {
+        wsLog('Decompressing message:', data.compressedSize, '->', data.originalSize, 'bytes');
+        return await decompressGzipData(data.data);
+    }
+    return data;
+}
+
+/* ==========================================================================
    WebSocket Connection
    ========================================================================== */
 
@@ -56,14 +237,14 @@ async function requestNotificationPermission() {
 function initWebSocket() {
     // Check if already connected or connecting
     if (_websocket && (_websocket.readyState === WebSocket.OPEN || _websocket.readyState === WebSocket.CONNECTING)) {
-        console.log('[WS] Already connected or connecting');
+        wsLog('Already connected or connecting');
         return;
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/project/ws`;
 
-    console.log('[WS] Connecting to:', wsUrl);
+    wsLog('Connecting to:', wsUrl);
     updateWebSocketStatus('connecting');
 
     try {
@@ -74,7 +255,7 @@ function initWebSocket() {
         _websocket.onerror = handleWebSocketError;
         _websocket.onclose = handleWebSocketClose;
     } catch (error) {
-        console.error('[WS] Connection error:', error);
+        wsError('Connection error:', error);
         scheduleWebSocketReconnect();
     }
 }
@@ -82,8 +263,8 @@ function initWebSocket() {
 /**
  * Handle WebSocket open event
  */
-function handleWebSocketOpen(event) {
-    console.log('[WS] Connected');
+function handleWebSocketOpen() {
+    wsLog('Connected');
     _wsReconnectAttempts = 0;
 
     // Update UI to show connected status
@@ -98,16 +279,54 @@ function handleWebSocketOpen(event) {
         channels: ['pmon', 'deployment', 'logs']
     });
 
+    // Re-subscribe to log file if one was selected
+    if (_logCurrentFile && _logUseWebSocket) {
+        sendWebSocketMessage({
+            type: 'subscribeLog',
+            file: _logCurrentFile,
+            startPos: _logLastPos
+        });
+        // Stop polling since we're using WebSocket now
+        stopLogRefresh();
+        logViewerLog('Re-subscribed to log file via WebSocket:', _logCurrentFile);
+    }
+
+    // Refresh log file list
+    refreshLogFiles();
+
     showToast('success', 'Real-time Connected', 'Live updates enabled');
 }
 
 /**
  * Handle incoming WebSocket messages
+ * Supports both compressed and uncompressed messages
  */
-function handleWebSocketMessage(event) {
+async function handleWebSocketMessage(event) {
     try {
-        const data = JSON.parse(event.data);
-        console.log('[WS] Message received:', data.type);
+        // First parse the wrapper JSON
+        let data;
+        try {
+            data = JSON.parse(event.data);
+        } catch (parseError) {
+            wsError('JSON parse error:', parseError.message);
+            wsError('Raw data preview:', event.data.substring(0, 200));
+            return;
+        }
+
+        // Check if message is compressed and decompress if needed
+        if (data.compressed) {
+            try {
+                data = await handleCompressedMessage(data);
+            } catch (decompressError) {
+                wsError('Decompression error:', decompressError.message);
+                return;
+            }
+        }
+
+        // Skip logging for frequent message types
+        if (data.type !== 'heartbeat') {
+            wsLog('Message received:', data.type);
+        }
 
         switch (data.type) {
             case 'pmon':
@@ -122,6 +341,14 @@ function handleWebSocketMessage(event) {
                 handleLogUpdate(data);
                 break;
 
+            case 'logContent':
+                handleLogContent(data);
+                break;
+
+            case 'logFiles':
+                handleLogFilesList(data);
+                break;
+
             case 'heartbeat':
                 // Heartbeat acknowledged
                 break;
@@ -130,11 +357,17 @@ function handleWebSocketMessage(event) {
                 showToast(data.level || 'info', data.title, data.message);
                 break;
 
+            case 'error':
+                wsError('Server error:', data.message);
+                showToast('error', 'Server Error', data.message || 'Unknown error');
+                hideLogLoading();
+                break;
+
             default:
-                console.log('[WS] Unknown message type:', data.type);
+                wsLog('Unknown message type:', data.type);
         }
     } catch (error) {
-        console.error('[WS] Message parse error:', error);
+        wsError('Unexpected error:', error);
     }
 }
 
@@ -142,7 +375,7 @@ function handleWebSocketMessage(event) {
  * Handle WebSocket error
  */
 function handleWebSocketError(event) {
-    console.error('[WS] Error:', event);
+    wsError('Error:', event);
     updateWebSocketStatus('disconnected');
 }
 
@@ -150,9 +383,16 @@ function handleWebSocketError(event) {
  * Handle WebSocket close
  */
 function handleWebSocketClose(event) {
-    console.log('[WS] Closed:', event.code, event.reason);
+    wsLog('Closed:', event.code, event.reason);
     updateWebSocketStatus('disconnected');
     stopWebSocketHeartbeat();
+
+    // If a log file was being viewed, fall back to HTTP polling
+    if (_logCurrentFile && _logUseWebSocket) {
+        logViewerLog('WebSocket closed, falling back to HTTP polling');
+        loadLogLines();
+        startLogRefresh();
+    }
 
     // Attempt reconnection if not intentionally closed
     if (event.code !== 1000) {
@@ -165,7 +405,7 @@ function handleWebSocketClose(event) {
  */
 function scheduleWebSocketReconnect() {
     if (_wsReconnectAttempts >= _wsMaxReconnectAttempts) {
-        console.log('[WS] Max reconnection attempts reached');
+        wsLog('Max reconnection attempts reached');
         showToast('warning', 'Connection Lost', 'Real-time updates unavailable. Refresh page to retry.');
         return;
     }
@@ -328,8 +568,75 @@ function handleDeploymentUpdate(data) {
  * Handle log update from WebSocket
  */
 function handleLogUpdate(data) {
+    // Only process if this is for the current file
+    if (data.file && data.file !== _logCurrentFile) {
+        return;
+    }
+
     if (data.lines && data.lines.length > 0) {
         renderLogLines(data.lines);
+    }
+
+    // Update last position for tracking
+    if (data.lastPos) {
+        _logLastPos = data.lastPos;
+    }
+}
+
+/**
+ * Handle initial log content from WebSocket
+ */
+function handleLogContent(data) {
+    // Only process if this is for the current file
+    if (data.file && data.file !== _logCurrentFile) {
+        return;
+    }
+
+    // Hide loading indicator
+    hideLogLoading();
+
+    // Clear existing content and render new lines
+    const container = document.getElementById('logContainer');
+    container.innerHTML = '';
+    _logLineCount = 0;
+
+    if (data.lines && data.lines.length > 0) {
+        renderLogLines(data.lines);
+    }
+
+    // Update last position for tracking
+    if (data.lastPos) {
+        _logLastPos = data.lastPos;
+    }
+
+    // Update connection status
+    updateLogConnectionStatus('streaming');
+}
+
+/**
+ * Handle log files list from WebSocket
+ */
+function handleLogFilesList(data) {
+    const select = document.getElementById('logFileSelect');
+    const currentValue = select.value;
+
+    // Clear existing options except the first one
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+
+    // Add new options
+    const files = data.files || [];
+    files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file.name;
+        option.textContent = `${file.name} (${file.size} KB)`;
+        select.appendChild(option);
+    });
+
+    // Restore selection if still available
+    if (currentValue) {
+        select.value = currentValue;
     }
 }
 
@@ -1283,39 +1590,55 @@ function checkServerAvailability() {
 
 // Log viewer state
 let _logLastLineId = 0;
+let _logLastPos = 0;
 let _logCurrentFile = null;
-let _logIsFrozen = false;
 let _logIsScrollPaused = false;
 let _logRefreshIntervalId = null;
+let _logUseWebSocket = true; // Use WebSocket by default, fallback to polling
+let _logLineCount = 0;
+let _logIsLoading = false;
+
+/**
+ * Show log loading overlay
+ * @param {string} message - Optional loading message
+ */
+function showLogLoading(message = 'Loading log file...') {
+    const overlay = document.getElementById('logLoadingOverlay');
+    const textElement = overlay?.querySelector('.log-loading-text');
+    if (overlay) {
+        if (textElement) textElement.textContent = message;
+        overlay.style.display = 'flex';
+    }
+    _logIsLoading = true;
+}
+
+/**
+ * Hide log loading overlay
+ */
+function hideLogLoading() {
+    const overlay = document.getElementById('logLoadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    _logIsLoading = false;
+}
 
 /**
  * Refresh the list of available log files
+ * Uses WebSocket if available, falls back to HTTP
  */
 function refreshLogFiles() {
+    // Try WebSocket first
+    if (_logUseWebSocket && _websocket && _websocket.readyState === WebSocket.OPEN) {
+        sendWebSocketMessage({ type: 'getLogFiles' });
+        return;
+    }
+
+    // Fallback to HTTP
     fetch('/logs/files')
         .then(response => response.json())
         .then(data => {
-            const select = document.getElementById('logFileSelect');
-            const currentValue = select.value;
-
-            // Clear existing options except the first one
-            while (select.options.length > 1) {
-                select.remove(1);
-            }
-
-            // Add new options
-            const files = data.files || [];
-            files.forEach(file => {
-                const option = document.createElement('option');
-                option.value = file.name;
-                option.textContent = `${file.name} (${file.size} KB)`;
-                select.appendChild(option);
-            });
-
-            // Restore selection if still available
-            if (currentValue) {
-                select.value = currentValue;
-            }
+            handleLogFilesList(data);
         })
         .catch(error => {
             console.error('Error fetching log files:', error);
@@ -1324,24 +1647,53 @@ function refreshLogFiles() {
 
 /**
  * Handle log file selection change
+ * Uses WebSocket subscription if available, falls back to HTTP polling
  */
 function selectLogFile() {
     const select = document.getElementById('logFileSelect');
     const fileName = select.value;
 
+    // Unsubscribe from previous file if using WebSocket
+    if (_logCurrentFile && _logUseWebSocket && _websocket && _websocket.readyState === WebSocket.OPEN) {
+        sendWebSocketMessage({ type: 'unsubscribeLog' });
+    }
+
     if (!fileName) {
         stopLogRefresh();
-        document.getElementById('logContainer').textContent = 'Select a log file to view...';
+        resetLogViewer();
+        _logCurrentFile = null;
         return;
     }
 
     _logCurrentFile = fileName;
     _logLastLineId = 0;
+    _logLastPos = 0;
+    _logLineCount = 0;
     document.getElementById('logContainer').innerHTML = '';
+    updateLogFileInfo(fileName);
+    updateLogLineCount();
 
-    // Start refreshing logs
-    loadLogLines();
-    startLogRefresh();
+    // Show loading indicator
+    showLogLoading('Loading ' + fileName + '...');
+
+    // Try WebSocket subscription first
+    if (_logUseWebSocket && _websocket && _websocket.readyState === WebSocket.OPEN) {
+        sendWebSocketMessage({
+            type: 'subscribeLog',
+            file: fileName,
+            startPos: 0
+        });
+        // No need for polling interval with WebSocket
+        stopLogRefresh();
+        updateLogConnectionStatus('streaming');
+        logViewerLog('Subscribed to log file via WebSocket:', fileName);
+    } else {
+        // Fallback to HTTP polling
+        logViewerLog('Using HTTP polling for log file:', fileName);
+        updateLogConnectionStatus('polling');
+        loadLogLines();
+        startLogRefresh();
+    }
 }
 
 /**
@@ -1366,7 +1718,7 @@ function stopLogRefresh() {
  * Load new log lines from the server
  */
 async function loadLogLines() {
-    if (_logIsFrozen || !_logCurrentFile) return;
+    if (!_logCurrentFile) return;
 
     try {
         const response = await fetch(`/logs/read?file=${encodeURIComponent(_logCurrentFile)}&since=${_logLastLineId}&limit=1000`, {
@@ -1379,6 +1731,9 @@ async function loadLogLines() {
         if (!response.ok) throw new Error('API Error');
 
         const data = await response.json();
+
+        // Hide loading indicator after first successful load
+        hideLogLoading();
 
         if (data.error) {
             throw new Error(data.error);
@@ -1397,6 +1752,7 @@ async function loadLogLines() {
 
     } catch (error) {
         console.error('Error loading log lines:', error);
+        hideLogLoading();
         const container = document.getElementById('logContainer');
         const errorSpan = document.createElement('span');
         errorSpan.className = 'log-error';
@@ -1417,7 +1773,10 @@ function renderLogLines(lines) {
         span.className = getLogLevelClass(line);
         span.textContent = line;
         container.appendChild(span);
+        _logLineCount++;
     }
+
+    updateLogLineCount();
 
     if (!_logIsScrollPaused) {
         container.scrollTop = container.scrollHeight;
@@ -1464,7 +1823,6 @@ function applyLogFilter() {
 function initLogViewer() {
     const filterInput = document.getElementById('logFilterInput');
     const pauseCheckbox = document.getElementById('logPauseScroll');
-    const freezeCheckbox = document.getElementById('logFreezeUpdate');
     const container = document.getElementById('logContainer');
 
     if (filterInput) {
@@ -1472,22 +1830,154 @@ function initLogViewer() {
     }
 
     if (pauseCheckbox) {
+        // Auto-scroll toggle: checked = auto-scroll enabled (not paused)
+        pauseCheckbox.checked = true; // Default: auto-scroll on
         pauseCheckbox.addEventListener('change', function(e) {
-            _logIsScrollPaused = e.target.checked;
+            _logIsScrollPaused = !e.target.checked; // Inverted: checked = scrolling
             container.classList.toggle('paused', _logIsScrollPaused);
-        });
-    }
-
-    if (freezeCheckbox) {
-        freezeCheckbox.addEventListener('change', function(e) {
-            _logIsFrozen = e.target.checked;
-            container.classList.toggle('frozen', _logIsFrozen);
         });
     }
 
     // Load initial file list
     refreshLogFiles();
 }
+
+/**
+ * Reset log viewer to initial state
+ */
+function resetLogViewer() {
+    const container = document.getElementById('logContainer');
+    container.innerHTML = `
+        <div class="log-placeholder">
+            <span class="log-placeholder-icon">&#128196;</span>
+            <span class="log-placeholder-text">Select a log file to view its contents</span>
+        </div>
+    `;
+    _logLineCount = 0;
+    updateLogLineCount();
+    updateLogFileInfo(null);
+    updateLogConnectionStatus('disconnected');
+}
+
+/**
+ * Update the log line count display
+ */
+function updateLogLineCount() {
+    const element = document.getElementById('logLineCount');
+    if (element) {
+        element.textContent = _logLineCount + ' line' + (_logLineCount !== 1 ? 's' : '');
+    }
+}
+
+/**
+ * Update the log file info display
+ * @param {string|null} fileName - Current file name or null
+ */
+function updateLogFileInfo(fileName) {
+    const element = document.getElementById('logFileInfo');
+    if (element) {
+        element.textContent = fileName ? fileName : 'No file selected';
+    }
+}
+
+/**
+ * Update the log connection status indicator
+ * @param {string} status - 'streaming', 'polling', 'disconnected'
+ */
+function updateLogConnectionStatus(status) {
+    const indicator = document.getElementById('logStatusIndicator');
+    const text = document.getElementById('logStatusText');
+
+    if (!indicator || !text) return;
+
+    indicator.className = 'log-status-indicator';
+
+    switch (status) {
+        case 'streaming':
+            indicator.classList.add('streaming');
+            text.textContent = 'Live streaming';
+            break;
+        case 'polling':
+            indicator.classList.add('polling');
+            text.textContent = 'Polling (3s)';
+            break;
+        case 'connected':
+            indicator.classList.add('connected');
+            text.textContent = 'Connected';
+            break;
+        default:
+            text.textContent = 'Not connected';
+    }
+}
+
+/**
+ * Clear the log filter input
+ */
+function clearLogFilter() {
+    const filterInput = document.getElementById('logFilterInput');
+    if (filterInput) {
+        filterInput.value = '';
+        applyLogFilter();
+    }
+}
+
+/**
+ * Scroll log container to top
+ */
+function scrollToTop() {
+    const container = document.getElementById('logContainer');
+    if (container) {
+        container.scrollTop = 0;
+    }
+}
+
+/**
+ * Scroll log container to bottom
+ */
+function scrollToBottom() {
+    const container = document.getElementById('logContainer');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// Log viewer maximize state
+let _logIsMaximized = false;
+
+/**
+ * Toggle log viewer maximize state
+ */
+function toggleLogMaximize() {
+    const logsTab = document.getElementById('Logs');
+    const maximizeIcon = document.getElementById('logMaximizeIcon');
+    const minimizeIcon = document.getElementById('logMinimizeIcon');
+    const maximizeBtn = document.getElementById('logMaximizeBtn');
+
+    _logIsMaximized = !_logIsMaximized;
+
+    if (_logIsMaximized) {
+        logsTab.classList.add('maximized');
+        maximizeIcon.style.display = 'none';
+        minimizeIcon.style.display = 'block';
+        maximizeBtn.title = 'Restore log viewer';
+        document.body.style.overflow = 'hidden';
+    } else {
+        logsTab.classList.remove('maximized');
+        maximizeIcon.style.display = 'block';
+        minimizeIcon.style.display = 'none';
+        maximizeBtn.title = 'Maximize log viewer';
+        document.body.style.overflow = '';
+    }
+}
+
+/**
+ * Handle Escape key to exit maximized mode
+ */
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && _logIsMaximized) {
+        toggleLogMaximize();
+    }
+});
 
 /* ==========================================================================
    Deployment History Functions

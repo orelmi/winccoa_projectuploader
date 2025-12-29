@@ -9,8 +9,13 @@
 #uses "CtrlPv2Admin"
 #uses "pmon"
 #uses "CtrlHTTP"
+#uses "CtrlZlib"
+
 
 const string DPT_PROJDOWN = "PROJECT_DOWNLOAD";
+
+// Debug flag for WebSocket traces
+const int DEBUG_WEBSOCKET = 62;
 
 // CSRF Token configuration
 const int CSRF_TOKEN_LENGTH = 32;
@@ -24,6 +29,113 @@ mapping _wsConnections;
 
 // Last pmon JSON value for change detection
 string _lastPmonJson;
+
+// Log file subscriptions: mapping[idx] = mapping("file", fileName, "lastPos", filePosition)
+mapping _logSubscriptions;
+
+// Log file monitoring thread running flag
+bool _logMonitorRunning = false;
+
+/**
+ * Sanitize a string to ensure it's valid UTF-8 for WebSocket transmission
+ * Replaces invalid bytes with a replacement character
+ * @param input The input string to sanitize
+ * @return A sanitized UTF-8 string
+ */
+string _sanitizeForUtf8(string input)
+{
+  string result = "";
+  int len = strlen(input);
+
+  for (int i = 0; i < len; i++)
+  {
+    int charCode = input[i];
+
+    // Valid ASCII printable characters and common control chars (tab, newline, carriage return)
+    if ((charCode >= 32 && charCode <= 126) || charCode == 9 || charCode == 10 || charCode == 13)
+    {
+      result += substr(input, i, 1);
+    }
+    // Extended ASCII / potentially invalid bytes - replace with question mark
+    else if (charCode >= 128 || charCode < 0)
+    {
+      result += "?";
+    }
+    // Other control characters - skip them
+  }
+
+  return result;
+}
+
+/**
+ * Sanitize an array of log lines for UTF-8 transmission
+ * @param lines Array of log lines to sanitize
+ * @return Sanitized array of log lines
+ */
+dyn_string _sanitizeLogLines(dyn_string lines)
+{
+  dyn_string sanitizedLines;
+  for (int i = 1; i <= dynlen(lines); i++)
+  {
+    dynAppend(sanitizedLines, _sanitizeForUtf8(lines[i]));
+  }
+  return sanitizedLines;
+}
+
+/**
+ * Send compressed log data via WebSocket
+ * Uses gzip compression for efficient transmission of log lines
+ * @param idx WebSocket connection index
+ * @param response Mapping containing the log response data
+ * @return 0 on success, non-zero on failure
+ */
+int _sendCompressedLogData(int idx, mapping response)
+{
+  // Encode response to JSON
+  string uncompressedData = jsonEncode(response);
+  
+  // Compress using gzip - returns int: 0 on success, -1 on error
+  blob compressedData;
+  bool rc = gzip(uncompressedData, compressedData);
+  DebugFTN(DEBUG_WEBSOCKET, "WebSocket: gzip() rc:", rc, "input:", strlen(uncompressedData), "output:", bloblen(compressedData));
+
+  if (!rc || bloblen(compressedData) == 0)
+  {
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Compression failed, sending uncompressed");
+    return httpWriteWebSocket(idx, uncompressedData);
+  }
+
+  // Debug: log first bytes of compressed data to identify format
+  if (bloblen(compressedData) >= 2)
+  {
+    int pos = 0;
+    char b0, b1;
+    blobGetValue(compressedData, pos, b0, 1);
+    blobGetValue(compressedData, pos, b1, 1);
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Compressed header bytes:", (int)b0, (int)b1);
+  }
+
+  // Create wrapper with compression metadata
+  mapping wrapper;
+  wrapper["compressed"] = true;
+  wrapper["encoding"] = "gzip";
+  wrapper["originalSize"] = bloblen(uncompressedData);
+  wrapper["compressedSize"] = bloblen(compressedData);
+
+  // Convert compressed blob to base64 for JSON transmission
+  string base64Data = base64Encode(compressedData);
+  wrapper["data"] = base64Data;
+
+  int result = httpWriteWebSocket(idx, jsonEncode(wrapper));
+
+  if (result == 0)
+  {
+    float ratio = (float)bloblen(compressedData) / (float)strlen(uncompressedData) * 100.0;
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Sent compressed", strlen(uncompressedData), "->", bloblen(compressedData), "bytes (" + (int)ratio + "%)");
+  }
+
+  return result;
+}
 
 /**
  * Callback for pmon datapoint changes - broadcasts to WebSocket clients
@@ -81,10 +193,189 @@ void _cbPmonChanged(dyn_string dpes, dyn_string values)
 
   if (dynlen(failedConnections) > 0)
   {
-    DebugTN("WebSocket: Removed", dynlen(failedConnections), "failed connections");
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Removed", dynlen(failedConnections), "failed connections");
   }
 
-  DebugTN("WebSocket: Broadcasted pmon update to", mappinglen(_wsConnections), "clients");
+  DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Broadcasted pmon update to", mappinglen(_wsConnections), "clients");
+}
+
+/**
+ * Monitor log files for changes and broadcast new lines to subscribers
+ * This function runs as a background loop
+ */
+void _monitorLogFiles()
+{
+  if (_logMonitorRunning)
+  {
+    return; // Already running
+  }
+
+  _logMonitorRunning = true;
+  DebugFTN(DEBUG_WEBSOCKET, "Log monitor: Started");
+
+  while (_logMonitorRunning && mappinglen(_wsConnections) > 0)
+  {
+    // Check each subscription
+    dyn_int subscriberIndices;
+    dyn_string subscriberFiles;
+    dyn_long subscriberPositions;
+
+    // Collect subscriptions
+    for (int i = 1; i <= mappinglen(_logSubscriptions); i++)
+    {
+      int idx = mappingGetKey(_logSubscriptions, i);
+      mapping sub = _logSubscriptions[idx];
+      dynAppend(subscriberIndices, idx);
+      dynAppend(subscriberFiles, sub["file"]);
+      dynAppend(subscriberPositions, sub["lastPos"]);
+    }
+
+    // Group subscribers by file to avoid reading the same file multiple times
+    mapping fileSubscribers; // file -> dyn_int of subscriber indices
+
+    for (int i = 1; i <= dynlen(subscriberIndices); i++)
+    {
+      string file_ = subscriberFiles[i];
+      if (!mappingHasKey(fileSubscribers, file_))
+      {
+        fileSubscribers[file_] = makeDynInt();
+      }
+      dynAppend(fileSubscribers[file_], i); // Index in our arrays
+    }
+
+    // Process each file
+    for (int f = 1; f <= mappinglen(fileSubscribers); f++)
+    {
+      string fileName = mappingGetKey(fileSubscribers, f);
+      dyn_int subIndices = fileSubscribers[fileName];
+
+      // Security: Validate file name
+      if (strpos(fileName, "..") >= 0 || strpos(fileName, "/") >= 0 || strpos(fileName, "\\") >= 0)
+      {
+        continue;
+      }
+
+      string filePath = LOG_REL_PATH + fileName;
+      if (!isfile(filePath))
+      {
+        continue;
+      }
+
+      long fileSize = getFileSize(filePath);
+
+      // Find the minimum position among all subscribers for this file
+      long minPos = 999999999;
+      for (int s = 1; s <= dynlen(subIndices); s++)
+      {
+        int arrIdx = subIndices[s];
+        if (subscriberPositions[arrIdx] < minPos)
+        {
+          minPos = subscriberPositions[arrIdx];
+        }
+      }
+
+      // If file has new content
+      if (fileSize > minPos)
+      {
+        dyn_string newLines;
+        long newPos = minPos;
+
+        // Read new lines from the file
+        file logFile = fopen(filePath, "rb");
+        if (logFile)
+        {
+          fseek(logFile, minPos, SEEK_SET);
+
+          while (!feof(logFile))
+          {
+            string line;
+            int rc = fgets(line, 10000, logFile);
+            if (rc > 0)
+            {
+              dynAppend(newLines, line);
+              newPos = ftell(logFile);
+            }
+          }
+          fclose(logFile);
+        }
+
+        // Send new lines to each subscriber
+        if (dynlen(newLines) > 0)
+        {
+          for (int s = 1; s <= dynlen(subIndices); s++)
+          {
+            int arrIdx = subIndices[s];
+            int connIdx = subscriberIndices[arrIdx];
+            long subPos = subscriberPositions[arrIdx];
+
+            // Only send lines that are new for this subscriber
+            dyn_string linesToSend;
+            long currentPos = minPos;
+            file logFile2 = fopen(filePath, "rb");
+            if (logFile2)
+            {
+              fseek(logFile2, subPos, SEEK_SET);
+              while (!feof(logFile2))
+              {
+                string line;
+                int rc = fgets(line, 10000, logFile2);
+                if (rc > 0)
+                {
+                  dynAppend(linesToSend, line);
+                }
+              }
+              fclose(logFile2);
+            }
+
+            if (dynlen(linesToSend) > 0)
+            {
+              // Update subscription position
+              if (mappingHasKey(_logSubscriptions, connIdx))
+              {
+                mapping sub = _logSubscriptions[connIdx];
+                sub["lastPos"] = fileSize;
+                _logSubscriptions[connIdx] = sub;
+              }
+
+              // Sanitize log lines for UTF-8 WebSocket transmission
+              dyn_string sanitizedLines = _sanitizeLogLines(linesToSend);
+
+              // Send log update via WebSocket with compression
+              mapping response;
+              response["type"] = "log";
+              response["file"] = fileName;
+              response["lines"] = sanitizedLines;
+              response["lastPos"] = fileSize;
+              response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+              int rc = _sendCompressedLogData(connIdx, response);
+              if (rc != 0)
+              {
+                // Connection failed, will be cleaned up later
+                mappingRemove(_logSubscriptions, connIdx);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    delay(0, 500); // Check every 500ms
+  }
+
+  _logMonitorRunning = false;
+  DebugFTN(DEBUG_WEBSOCKET, "Log monitor: Stopped");
+}
+
+/**
+ * Start the log file monitor if not already running
+ */
+void _startLogMonitor()
+{
+  if (!_logMonitorRunning && mappinglen(_logSubscriptions) > 0)
+  {
+    startThread("_monitorLogFiles");
+  }
 }
 
 //--------------------------------------------------------------------------------
@@ -111,7 +402,7 @@ class ProjectDownloadHttpEndpoints
       throwError(makeError("", PRIO_INFO, ERR_PARAM, 0, "Project download interface is disabled by config, see section [projectDownload]"));
       return;
     }
-    DebugTN("httpConnect", URL_BASE);
+    DebugFTN(DEBUG_WEBSOCKET, "httpConnect", URL_BASE);
     httpConnect(mainPage, URL_BASE);
     httpConnect(handleRequestDownload, URL_BASE + "/download");
     httpConnect(handleRequestRestart, URL_BASE + "/restart", "application/json");
@@ -126,7 +417,7 @@ class ProjectDownloadHttpEndpoints
 
     // WebSocket endpoint for real-time updates
     httpConnect(handleWebSocket, URL_BASE + "/ws", "_websocket_");
-    DebugTN("WebSocket endpoint registered at", URL_BASE + "/ws");
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket endpoint registered at", URL_BASE + "/ws");
 
     // Subscribe to pmon datapoint changes for WebSocket broadcast
     subscribeToPmonChanges();
@@ -140,7 +431,7 @@ class ProjectDownloadHttpEndpoints
     dyn_string dps = dpNames("*", DPT_PROJDOWN);
     if (dynlen(dps) == 0)
     {
-      DebugTN("WebSocket: No PROJECT_DOWNLOAD datapoints found, skipping pmon subscription");
+      DebugFTN(DEBUG_WEBSOCKET, "WebSocket: No PROJECT_DOWNLOAD datapoints found, skipping pmon subscription");
       return;
     }
 
@@ -153,7 +444,7 @@ class ProjectDownloadHttpEndpoints
 
     // Use dpConnect to monitor changes - callback is outside the class
     dpConnect("_cbPmonChanged", false, pmonDpes);
-    DebugTN("WebSocket: Subscribed to pmon changes on", dynlen(pmonDpes), "datapoints");
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Subscribed to pmon changes on", dynlen(pmonDpes), "datapoints");
   }
 
   static string handleRequestRestart(blob content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
@@ -456,7 +747,7 @@ class ProjectDownloadHttpEndpoints
     string user = map["user"];
     string ip = map["ip"];
 
-    DebugTN("WebSocket: New connection from", ip, "user:", user, "idx:", idx);
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: New connection from", ip, "user:", user, "idx:", idx);
 
     // Store connection info
     mapping connInfo;
@@ -476,8 +767,15 @@ class ProjectDownloadHttpEndpoints
     }
 
     // Connection closed
-    DebugTN("WebSocket: Connection closed, idx:", idx);
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Connection closed, idx:", idx);
     mappingRemove(_wsConnections, idx);
+
+    // Clean up any log subscriptions for this connection
+    if (mappingHasKey(_logSubscriptions, idx))
+    {
+      mappingRemove(_logSubscriptions, idx);
+      DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Cleaned up log subscription for idx:", idx);
+    }
   }
 
   /**
@@ -498,7 +796,7 @@ class ProjectDownloadHttpEndpoints
     }
 
     string msgType = msg["type"];
-    DebugTN("WebSocket: Received message type:", msgType, "from idx:", idx);
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Received message type:", msgType, "from idx:", idx);
 
     if (msgType == "heartbeat")
     {
@@ -517,6 +815,50 @@ class ProjectDownloadHttpEndpoints
     {
       // Client requests pmon data
       sendPmonUpdate(idx);
+    }
+    else if (msgType == "subscribeLog")
+    {
+      // Subscribe to log file updates
+      string fileName = msg["file"];
+      long startPos = msg["startPos"];
+
+      // Security: Validate file name
+      if (strpos(fileName, "..") >= 0 || strpos(fileName, "/") >= 0 || strpos(fileName, "\\") >= 0)
+      {
+        mapping errorResponse;
+        errorResponse["type"] = "error";
+        errorResponse["message"] = "Invalid file name";
+        httpWriteWebSocket(idx, jsonEncode(errorResponse));
+        return;
+      }
+
+      // Create or update subscription
+      mapping sub;
+      sub["file"] = fileName;
+      sub["lastPos"] = startPos;
+      _logSubscriptions[idx] = sub;
+
+      DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Client", idx, "subscribed to log file:", fileName, "from position:", startPos);
+
+      // Send initial log content
+      sendLogContent(idx, fileName, startPos);
+
+      // Start monitor if needed
+      _startLogMonitor();
+    }
+    else if (msgType == "unsubscribeLog")
+    {
+      // Unsubscribe from log updates
+      if (mappingHasKey(_logSubscriptions, idx))
+      {
+        mappingRemove(_logSubscriptions, idx);
+        DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Client", idx, "unsubscribed from log updates");
+      }
+    }
+    else if (msgType == "getLogFiles")
+    {
+      // Send list of available log files
+      sendLogFileList(idx);
     }
   }
 
@@ -543,6 +885,112 @@ class ProjectDownloadHttpEndpoints
       mapping obj = jsonDecode(values[i]);
       dynAppend(response["instances"], obj);
     }
+    response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+    httpWriteWebSocket(idx, jsonEncode(response));
+  }
+
+  /**
+   * Send log file content to a specific WebSocket client
+   * @param idx Connection index
+   * @param fileName Log file name
+   * @param startPos Starting position in the file
+   */
+  private static void sendLogContent(int idx, string fileName, long startPos)
+  {
+    string filePath = LOG_REL_PATH + fileName;
+
+    if (!isfile(filePath))
+    {
+      mapping errorResponse;
+      errorResponse["type"] = "error";
+      errorResponse["message"] = "File not found: " + fileName;
+      httpWriteWebSocket(idx, jsonEncode(errorResponse));
+      return;
+    }
+
+    long fileSize = getFileSize(filePath);
+    dyn_string lines;
+
+    file logFile = fopen(filePath, "rb");
+    if (logFile)
+    {
+      if (startPos > 0 && startPos < fileSize)
+      {
+        fseek(logFile, startPos, SEEK_SET);
+      }
+
+      while (!feof(logFile))
+      {
+        string line;
+        int rc = fgets(line, 10000, logFile);
+        if (rc > 0)
+        {
+          dynAppend(lines, line);
+        }
+      }
+      fclose(logFile);
+    }
+
+    // Update subscription with current file position
+    if (mappingHasKey(_logSubscriptions, idx))
+    {
+      mapping sub = _logSubscriptions[idx];
+      sub["lastPos"] = fileSize;
+      _logSubscriptions[idx] = sub;
+    }
+
+    // Sanitize log lines for UTF-8 WebSocket transmission
+    dyn_string sanitizedLines = _sanitizeLogLines(lines);
+
+    mapping response;
+    response["type"] = "logContent";
+    response["file"] = fileName;
+    response["lines"] = sanitizedLines;
+    response["lastPos"] = fileSize;
+    response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+    // Use compression for log data transmission
+    _sendCompressedLogData(idx, response);
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Sent", dynlen(lines), "log lines to client", idx);
+  }
+
+  /**
+   * Send list of available log files to a WebSocket client
+   * @param idx Connection index
+   */
+  private static void sendLogFileList(int idx)
+  {
+    dyn_string logFileNames = getFileNames(LOG_REL_PATH, "*");
+
+    dyn_mapping files;
+    for (int i = 1; i <= dynlen(logFileNames); i++)
+    {
+      string filePath = getPath(LOG_REL_PATH, logFileNames[i]);
+      mapping fileInfo;
+      fileInfo["name"] = logFileNames[i];
+      fileInfo["size"] = getFileSize(filePath) / 1024; // KB
+      fileInfo["modified"] = (string)getFileModificationTime(filePath);
+      dynAppend(files, fileInfo);
+    }
+
+    // Sort by modification time (newest first)
+    for (int i = 1; i <= dynlen(files) - 1; i++)
+    {
+      for (int j = i + 1; j <= dynlen(files); j++)
+      {
+        if (files[j]["modified"] > files[i]["modified"])
+        {
+          mapping temp = files[i];
+          files[i] = files[j];
+          files[j] = temp;
+        }
+      }
+    }
+
+    mapping response;
+    response["type"] = "logFiles";
+    response["files"] = files;
     response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
 
     httpWriteWebSocket(idx, jsonEncode(response));
@@ -587,7 +1035,7 @@ class ProjectDownloadHttpEndpoints
       httpWriteWebSocket(connIdx, jsonResponse);
     }
 
-    DebugTN("WebSocket: Broadcasted pmon update to", mappinglen(_wsConnections), "clients");
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Broadcasted pmon update to", mappinglen(_wsConnections), "clients");
   }
 
   /**
@@ -616,7 +1064,7 @@ class ProjectDownloadHttpEndpoints
       httpWriteWebSocket(connIdx, jsonResponse);
     }
 
-    DebugTN("WebSocket: Broadcasted deployment update:", status);
+    DebugFTN(DEBUG_WEBSOCKET, "WebSocket: Broadcasted deployment update:", status);
   }
 
   /**

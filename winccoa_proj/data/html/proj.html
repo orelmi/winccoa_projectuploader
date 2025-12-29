@@ -186,30 +186,75 @@
         <div class="tab-content" id="Logs">
             <div class="form-wrapper">
                 <div class="form-box" style="max-width: 95% !important;">
-                    <h2>Log Viewer</h2>
-
-                    <!-- Log Viewer Toolbar -->
-                    <div class="log-toolbar">
-                        <div class="toolbar-left">
-                            <label for="logFileSelect">File:</label>
-                            <select id="logFileSelect" onchange="selectLogFile()">
-                                <option value="">-- Select a log file --</option>
-                            </select>
-                            <input type="button" onclick="refreshLogFiles()" value="Refresh List" class="btn-toolbar">
-                        </div>
-                        <div class="toolbar-right">
-                            <label><input type="text" id="logFilterInput" placeholder="Search..."></label>
-                            <label><input type="checkbox" id="logPauseScroll"> Pause scroll</label>
-                            <label><input type="checkbox" id="logFreezeUpdate"> Freeze</label>
+                    <!-- Log Viewer Header -->
+                    <div class="log-header">
+                        <h2>Log Viewer</h2>
+                        <button type="button" class="btn-icon" onclick="refreshLogFiles()" title="Refresh file list">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M13.65 2.35A8 8 0 1 0 16 8h-2a6 6 0 1 1-1.76-4.24L10 6h6V0l-2.35 2.35z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-icon" id="logMaximizeBtn" onclick="toggleLogMaximize()" title="Maximize log viewer">
+                            <svg id="logMaximizeIcon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2 2h5v2H4v3H2V2zM9 2h5v5h-2V4H9V2zM2 9h2v3h3v2H2V9zM12 12H9v2h5V9h-2v3z" fill="currentColor"/>
+                            </svg>
+                            <svg id="logMinimizeIcon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+                                <path d="M5 2v3H2v2h5V2H5zM9 2v5h5V5h-3V2H9zM2 9h3v5H2v-2h3V9H2zM14 9h-5v5h2v-3h3V9z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                        <div id="logConnectionStatus" class="log-connection-status">
+                            <span class="log-status-indicator" id="logStatusIndicator"></span>
+                            <span class="log-status-text" id="logStatusText">Not connected</span>
                         </div>
                     </div>
 
-                    <!-- Log Container -->
-                    <div id="logContainer" class="log-container">Select a log file to view...</div>
+                    <!-- Log Viewer Toolbar -->
+                    <div class="log-toolbar">
+                        <select id="logFileSelect" onchange="selectLogFile()">
+                            <option value="">Select a log file...</option>
+                        </select>
+                        <div class="log-filter-wrapper">
+                            <input type="text" id="logFilterInput" placeholder="Filter logs...">
+                            <button type="button" class="btn-clear-filter" onclick="clearLogFilter()" title="Clear filter">
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <label class="toggle-label" title="Auto-scroll to new logs">
+                            <input type="checkbox" id="logPauseScroll" checked>
+                            <span class="toggle-text">Auto-scroll</span>
+                            <span class="toggle-switch"></span>
+                        </label>
+                    </div>
 
-                    <!-- Link to standalone viewer -->
+                    <!-- Log Container -->
+                    <div id="logContainer" class="log-container">
+                        <div class="log-placeholder">
+                            <span class="log-placeholder-icon">&#128196;</span>
+                            <span class="log-placeholder-text">Select a log file to view its contents</span>
+                        </div>
+                    </div>
+
+                    <!-- Log Loading Overlay -->
+                    <div id="logLoadingOverlay" class="log-loading-overlay" style="display: none;">
+                        <div class="log-loading-spinner"></div>
+                        <span class="log-loading-text">Loading log file...</span>
+                    </div>
+
+                    <!-- Log Footer -->
                     <div class="log-footer">
-                        <a href="/logs" target="_blank">Open standalone log viewer</a>
+                        <div class="log-footer-left">
+                            <span id="logLineCount">0 lines</span>
+                            <span class="log-separator">|</span>
+                            <span id="logFileInfo">No file selected</span>
+                        </div>
+                        <div class="log-footer-right">
+                            <button type="button" class="btn-text" onclick="scrollToTop()" title="Scroll to top">&#8593; Top</button>
+                            <button type="button" class="btn-text" onclick="scrollToBottom()" title="Scroll to bottom">&#8595; Bottom</button>
+                            <span class="log-separator">|</span>
+                            <a href="/logs" target="_blank">Open standalone viewer</a>
+                        </div>
                     </div>
                 </div>
             </div>

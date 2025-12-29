@@ -870,74 +870,256 @@ td[data-state="2"] {
 }
 
 /* ==========================================================================
-   Log Viewer - Siemens iX Console Style
+   Log Viewer - Enhanced Siemens iX Console Style
    ========================================================================== */
 
+/* Log Header */
+.log-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.log-header .log-connection-status {
+    margin-left: auto;
+}
+
+.log-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.log-connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: var(--theme-color-2);
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.log-status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--theme-color-soft-text);
+    transition: background-color 0.3s ease;
+}
+
+.log-status-indicator.connected {
+    background-color: var(--theme-color-success);
+    box-shadow: 0 0 6px var(--theme-color-success);
+}
+
+.log-status-indicator.streaming {
+    background-color: var(--theme-color-success);
+    box-shadow: 0 0 6px var(--theme-color-success);
+    animation: pulse 1.5s infinite;
+}
+
+.log-status-indicator.polling {
+    background-color: var(--theme-color-warning);
+    box-shadow: 0 0 6px var(--theme-color-warning);
+}
+
+.log-status-text {
+    color: var(--theme-color-soft-text);
+    font-weight: 500;
+}
+
+/* Log Toolbar - Single row layout */
 .log-toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
+    justify-content: flex-start;
+    gap: 8px;
     margin-bottom: 16px;
     padding-bottom: 16px;
     border-bottom: 1px solid var(--theme-color-weak-bdr);
+    flex-wrap: nowrap;
+    min-height: 36px;
 }
 
-.log-toolbar .toolbar-left,
-.log-toolbar .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.log-toolbar label {
-    display: inline-flex !important;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 0 !important;
-    font-weight: 500 !important;
-    font-size: 13px;
-    color: var(--theme-color-std-text);
-}
-
-.log-toolbar select {
-    padding: 8px 12px;
+/* File Selector */
+.log-toolbar > select {
+    padding: 0 12px;
     border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
     background-color: var(--theme-color-component-1);
     color: var(--theme-color-std-text);
-    min-width: 200px;
+    width: 220px;
+    min-width: 150px;
     font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    height: 36px;
+    box-sizing: border-box;
+    flex-shrink: 1;
 }
 
-.log-toolbar select:hover {
+.log-toolbar > select:hover {
     border-color: var(--theme-color-primary);
 }
 
-.log-toolbar input[type="text"] {
-    padding: 8px 12px;
-    border: 1px solid var(--theme-color-std-bdr);
-    border-radius: 4px;
-    background-color: var(--theme-color-component-1);
-    color: var(--theme-color-std-text);
-    width: 150px;
-    font-size: 13px;
-}
-
-.log-toolbar input[type="text"]:focus {
+.log-toolbar > select:focus {
     border-color: var(--theme-color-primary);
+    box-shadow: 0 0 0 2px rgba(0, 153, 153, 0.2);
     outline: none;
 }
 
-.log-toolbar input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    accent-color: var(--theme-color-primary);
+/* Icon Button */
+.btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--theme-color-std-bdr);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
 }
 
+.btn-icon:hover {
+    border-color: var(--theme-color-primary);
+    color: var(--theme-color-primary);
+    background-color: var(--theme-color-component-hover);
+}
+
+.btn-icon:active {
+    transform: scale(0.95);
+}
+
+/* Filter Input Wrapper */
+.log-filter-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 100px;
+    height: 36px;
+}
+
+.log-filter-wrapper input[type="text"] {
+    padding: 0 32px 0 12px;
+    border: 1px solid var(--theme-color-std-bdr);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    width: 100%;
+    height: 36px;
+    box-sizing: border-box;
+    font-size: 13px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.log-filter-wrapper input[type="text"]:hover {
+    border-color: var(--theme-color-strong-bdr);
+}
+
+.log-filter-wrapper input[type="text"]:focus {
+    border-color: var(--theme-color-primary);
+    box-shadow: 0 0 0 2px rgba(0, 153, 153, 0.2);
+    outline: none;
+}
+
+.log-filter-wrapper input[type="text"]:focus + .btn-clear-filter,
+.log-filter-wrapper input[type="text"]:not(:placeholder-shown) ~ .btn-clear-filter {
+    opacity: 1;
+}
+
+.btn-clear-filter {
+    position: absolute;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--theme-color-soft-text);
+    cursor: pointer;
+    padding: 6px;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.btn-clear-filter:hover {
+    color: var(--theme-color-std-text);
+}
+
+.toggle-label {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    color: var(--theme-color-std-text);
+    margin: 0 !important;
+    padding: 0;
+    user-select: none;
+    flex-shrink: 0;
+    white-space: nowrap;
+    height: 36px;
+}
+
+.toggle-label input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-text {
+    color: var(--theme-color-soft-text);
+    transition: color 0.15s ease;
+}
+
+.toggle-label input[type="checkbox"]:checked ~ .toggle-text {
+    color: var(--theme-color-std-text);
+}
+
+.toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background-color: var(--theme-color-3);
+    border-radius: 10px;
+    transition: background-color 0.2s ease;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background-color: var(--theme-color-component-1);
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.toggle-label input[type="checkbox"]:checked ~ .toggle-switch {
+    background-color: var(--theme-color-primary);
+}
+
+.toggle-label input[type="checkbox"]:checked ~ .toggle-switch::after {
+    transform: translateX(16px);
+}
+
+/* Log Container */
 .log-container {
     width: 100%;
     height: 500px;
@@ -945,17 +1127,49 @@ td[data-state="2"] {
     overflow-y: auto;
     font-family: "Consolas", "Monaco", "Courier New", monospace;
     font-size: 12px;
-    padding: 12px;
+    line-height: 1.6;
+    padding: 16px;
     white-space: pre-wrap;
     background-color: #0d1117;
     color: #c9d1d9;
     border-radius: 4px;
     border: 1px solid var(--theme-color-std-bdr);
+    position: relative;
+}
+
+/* Placeholder */
+.log-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--theme-color-soft-text);
+    text-align: center;
+}
+
+.log-placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.log-placeholder-text {
+    font-size: 14px;
+    font-family: inherit;
 }
 
 .log-container span {
     display: block;
     padding: 2px 0;
+    border-left: 3px solid transparent;
+    padding-left: 10px;
+    margin-left: -10px;
+}
+
+.log-container span:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-left-color: var(--theme-color-primary);
 }
 
 /* Log level colors - Industrial style */
@@ -974,6 +1188,7 @@ td[data-state="2"] {
 .log-container .log-severe {
     color: #ff7b72;
     font-weight: bold;
+    background-color: rgba(255, 123, 114, 0.1);
 }
 
 .log-container .log-info {
@@ -982,23 +1197,66 @@ td[data-state="2"] {
 
 .log-container .log-debug {
     color: #a5d6ff;
+    opacity: 0.8;
 }
 
-/* Frozen and paused states */
-.log-container.frozen {
-    background-color: #0d1927 !important;
-    border-color: var(--theme-color-info) !important;
-}
-
+/* Paused state */
 .log-container.paused {
-    background-color: #1a1a0d !important;
     border-color: var(--theme-color-warning) !important;
 }
 
+.log-container.paused::before {
+    content: 'Auto-scroll paused';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 10px;
+    background-color: var(--theme-color-warning);
+    color: #000;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* Log Footer */
 .log-footer {
-    margin-top: 16px;
-    text-align: right;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--theme-color-weak-bdr);
     font-size: 12px;
+    color: var(--theme-color-soft-text);
+}
+
+.log-footer-left,
+.log-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.log-separator {
+    color: var(--theme-color-weak-bdr);
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--theme-color-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.btn-text:hover {
+    background-color: var(--theme-color-component-hover);
+    text-decoration: none;
 }
 
 .log-footer a {
@@ -1009,6 +1267,115 @@ td[data-state="2"] {
 
 .log-footer a:hover {
     text-decoration: underline;
+}
+
+#logLineCount {
+    font-family: "Consolas", "Monaco", monospace;
+    color: var(--theme-color-std-text);
+}
+
+#logFileInfo {
+    font-style: italic;
+}
+
+/* Log Loading Overlay */
+.log-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+    border-radius: 8px;
+}
+
+[data-ix-color-schema="dark"] .log-loading-overlay {
+    background-color: rgba(30, 30, 30, 0.85);
+}
+
+.log-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--theme-color-weak-bdr);
+    border-top-color: var(--theme-color-primary);
+    border-radius: 50%;
+    animation: log-spin 0.8s linear infinite;
+}
+
+@keyframes log-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.log-loading-text {
+    font-size: 14px;
+    color: var(--theme-color-soft-text);
+    font-weight: 500;
+}
+
+/* Make form-box position relative for overlay positioning */
+#Logs .form-box {
+    position: relative;
+}
+
+/* Log Viewer Maximized State */
+#Logs.maximized {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    background-color: var(--theme-color-1);
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+#Logs.maximized .form-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+#Logs.maximized .form-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: hidden;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#Logs.maximized .log-header {
+    flex-shrink: 0;
+}
+
+#Logs.maximized .log-toolbar {
+    flex-shrink: 0;
+}
+
+#Logs.maximized .log-container {
+    flex: 1;
+    height: auto !important;
+    min-height: 0;
+}
+
+#Logs.maximized .log-footer {
+    flex-shrink: 0;
 }
 
 /* ==========================================================================

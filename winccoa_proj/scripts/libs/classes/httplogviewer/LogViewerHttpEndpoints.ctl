@@ -146,7 +146,7 @@ class LogViewerHttpEndpoints
     dyn_mapping files;
     for (int i = 1; i <= dynlen(logFileNames); i++)
     {
-      string filePath = logPath + logFileNames[i];
+      string filePath = getPath(LOG_REL_PATH, logFileNames[i]);
       mapping fileInfo;
       fileInfo["name"] = logFileNames[i];
       fileInfo["size"] = getFileSize(filePath) / 1024; // KB
