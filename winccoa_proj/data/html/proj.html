@@ -84,8 +84,32 @@
         <div class="tab-content" id="Status">
             <div class="form-wrapper">
                 <div class="form-box" style="max-width: 95% !important;">
-                    <input type="button" onclick="refreshStatus()" value="Refresh" style="max-width: 200px;">
-                    <input type="button" onclick="restartProject()" value="Restart" style="max-width: 200px;">
+                    <!-- Console Toolbar -->
+                    <div class="console-toolbar">
+                        <div class="toolbar-left">
+                            <input type="button" onclick="refreshStatus()" value="Refresh" class="btn-toolbar">
+                            <input type="button" onclick="restartProject()" value="Restart" class="btn-toolbar btn-danger">
+                        </div>
+                        <div class="toolbar-right">
+                            <div class="auto-refresh-controls">
+                                <label class="auto-refresh-label">
+                                    <input type="checkbox" id="autoRefreshCheckbox" onchange="toggleAutoRefresh()">
+                                    <span id="autoRefreshStatus" class="status-indicator" title="Auto-refresh disabled"></span>
+                                    Auto-refresh
+                                </label>
+                                <select id="refreshIntervalSelect" onchange="changeRefreshInterval()" disabled>
+                                    <option value="2000">2s</option>
+                                    <option value="5000" selected>5s</option>
+                                    <option value="10000">10s</option>
+                                    <option value="30000">30s</option>
+                                    <option value="60000">1min</option>
+                                </select>
+                            </div>
+                            <div class="last-refresh">
+                                Last update: <span id="lastRefreshTime">--:--:--</span>
+                            </div>
+                        </div>
+                    </div>
 
                     <div id="instanceTabsContainer"></div>
                     <div id="instanceContentContainer"></div>

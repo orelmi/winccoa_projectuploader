@@ -10,6 +10,12 @@
 let pendingEvent = null;
 let _serverAvailable = false;
 
+// Auto-refresh state
+let _autoRefreshEnabled = false;
+let _autoRefreshIntervalId = null;
+let _autoRefreshInterval = 5000; // Default: 5 seconds
+let _lastRefreshTime = null;
+
 /* ==========================================================================
    Tab Navigation
    ========================================================================== */
@@ -154,6 +160,7 @@ function refreshStatus() {
         .then(response => response.json())
         .then(data => {
             clearInstanceTabs();
+            updateLastRefreshTime();
 
             const instances = data.instances;
             const tabsContainer = document.getElementById('instanceTabsContainer');
@@ -246,6 +253,97 @@ function showInstanceContent(index, totalInstances) {
 }
 
 /* ==========================================================================
+   Auto-Refresh Functions
+   ========================================================================== */
+
+/**
+ * Toggle auto-refresh on/off
+ */
+function toggleAutoRefresh() {
+    const checkbox = document.getElementById('autoRefreshCheckbox');
+    _autoRefreshEnabled = checkbox.checked;
+
+    if (_autoRefreshEnabled) {
+        startAutoRefresh();
+    } else {
+        stopAutoRefresh();
+    }
+
+    updateAutoRefreshUI();
+}
+
+/**
+ * Start the auto-refresh interval
+ */
+function startAutoRefresh() {
+    if (_autoRefreshIntervalId) {
+        clearInterval(_autoRefreshIntervalId);
+    }
+
+    _autoRefreshIntervalId = setInterval(function() {
+        if (_serverAvailable) {
+            refreshStatus();
+        }
+    }, _autoRefreshInterval);
+}
+
+/**
+ * Stop the auto-refresh interval
+ */
+function stopAutoRefresh() {
+    if (_autoRefreshIntervalId) {
+        clearInterval(_autoRefreshIntervalId);
+        _autoRefreshIntervalId = null;
+    }
+}
+
+/**
+ * Change the auto-refresh interval
+ */
+function changeRefreshInterval() {
+    const select = document.getElementById('refreshIntervalSelect');
+    _autoRefreshInterval = parseInt(select.value, 10);
+
+    // Restart interval if auto-refresh is enabled
+    if (_autoRefreshEnabled) {
+        startAutoRefresh();
+    }
+}
+
+/**
+ * Update the last refresh timestamp display
+ */
+function updateLastRefreshTime() {
+    _lastRefreshTime = new Date();
+    const element = document.getElementById('lastRefreshTime');
+    if (element) {
+        element.textContent = _lastRefreshTime.toLocaleTimeString();
+    }
+}
+
+/**
+ * Update auto-refresh UI state (button appearance, etc.)
+ */
+function updateAutoRefreshUI() {
+    const checkbox = document.getElementById('autoRefreshCheckbox');
+    const select = document.getElementById('refreshIntervalSelect');
+    const statusIndicator = document.getElementById('autoRefreshStatus');
+
+    if (checkbox) {
+        checkbox.checked = _autoRefreshEnabled;
+    }
+
+    if (select) {
+        select.disabled = !_autoRefreshEnabled;
+    }
+
+    if (statusIndicator) {
+        statusIndicator.classList.toggle('active', _autoRefreshEnabled);
+        statusIndicator.title = _autoRefreshEnabled ? 'Auto-refresh active' : 'Auto-refresh disabled';
+    }
+}
+
+/* ==========================================================================
    Server Availability Check
    ========================================================================== */
 
@@ -282,6 +380,7 @@ function checkServerAvailability() {
 document.addEventListener("DOMContentLoaded", function() {
     toggleNotice();
     refreshStatus();
+    updateAutoRefreshUI();
 });
 
 /**
