@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WinCC Open Architecture - Project manager</title>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/app.js" defer></script>
+    <link rel="stylesheet" href="/project/css/style.css">
+    <script src="/project/js/app.js" defer></script>
 </head>
 <body>
     <div class="header">
@@ -171,20 +171,6 @@
                             <input type="button" onclick="restartProject()" value="Restart" class="btn-toolbar btn-danger">
                         </div>
                         <div class="toolbar-right">
-                            <div class="auto-refresh-controls">
-                                <label class="auto-refresh-label">
-                                    <input type="checkbox" id="autoRefreshCheckbox" onchange="toggleAutoRefresh()">
-                                    <span id="autoRefreshStatus" class="status-indicator" title="Auto-refresh disabled"></span>
-                                    Auto-refresh
-                                </label>
-                                <select id="refreshIntervalSelect" onchange="changeRefreshInterval()" disabled>
-                                    <option value="2000">2s</option>
-                                    <option value="5000" selected>5s</option>
-                                    <option value="10000">10s</option>
-                                    <option value="30000">30s</option>
-                                    <option value="60000">1min</option>
-                                </select>
-                            </div>
                             <div class="last-refresh">
                                 Last update: <span id="lastRefreshTime">--:--:--</span>
                             </div>

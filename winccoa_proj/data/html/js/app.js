@@ -10,10 +10,7 @@
 let pendingEvent = null;
 let _serverAvailable = false;
 
-// Auto-refresh state
-let _autoRefreshEnabled = false;
-let _autoRefreshIntervalId = null;
-let _autoRefreshInterval = 5000; // Default: 5 seconds
+// Last refresh time for display
 let _lastRefreshTime = null;
 
 // CSRF token state
@@ -34,47 +31,6 @@ let _uploadAbortController = null;
 // Chunked upload configuration
 const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
 const MAX_CONCURRENT_CHUNKS = 3;
-
-/* ==========================================================================
-   Service Worker Registration
-   ========================================================================== */
-
-/**
- * Register Service Worker for offline support
- */
-async function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        try {
-            const registration = await navigator.serviceWorker.register('/project/sw.js', {
-                scope: '/project/'
-            });
-
-            console.log('[App] Service Worker registered:', registration.scope);
-
-            // Check for updates
-            registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                console.log('[App] Service Worker update found');
-
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        showToast('info', 'Update Available', 'New version available. Refresh to update.');
-                    }
-                });
-            });
-
-            // Request notification permission
-            if ('Notification' in window && Notification.permission === 'default') {
-                // Don't auto-request, wait for user action
-            }
-
-            return registration;
-        } catch (error) {
-            console.error('[App] Service Worker registration failed:', error);
-        }
-    }
-    return null;
-}
 
 /**
  * Request notification permission
@@ -154,15 +110,15 @@ function handleWebSocketMessage(event) {
 
         switch (data.type) {
             case 'pmon':
-                handlePmonUpdate(data.payload);
+                handlePmonUpdate(data);
                 break;
 
             case 'deployment':
-                handleDeploymentUpdate(data.payload);
+                handleDeploymentUpdate(data);
                 break;
 
             case 'log':
-                handleLogUpdate(data.payload);
+                handleLogUpdate(data);
                 break;
 
             case 'heartbeat':
@@ -170,7 +126,7 @@ function handleWebSocketMessage(event) {
                 break;
 
             case 'notification':
-                showToast(data.payload.level || 'info', data.payload.title, data.payload.message);
+                showToast(data.level || 'info', data.title, data.message);
                 break;
 
             default:
@@ -208,13 +164,8 @@ function handleWebSocketClose(event) {
  */
 function scheduleWebSocketReconnect() {
     if (_wsReconnectAttempts >= _wsMaxReconnectAttempts) {
-        console.log('[WS] Max reconnection attempts reached, falling back to polling');
-        showToast('warning', 'Connection Lost', 'Using polling mode for updates');
-        // Fall back to polling
-        if (!_autoRefreshEnabled) {
-            document.getElementById('autoRefreshCheckbox').checked = true;
-            toggleAutoRefresh();
-        }
+        console.log('[WS] Max reconnection attempts reached');
+        showToast('warning', 'Connection Lost', 'Real-time updates unavailable. Refresh page to retry.');
         return;
     }
 
@@ -329,17 +280,18 @@ function handlePmonUpdate(data) {
  * Handle deployment update from WebSocket
  */
 function handleDeploymentUpdate(data) {
+    const details = data.details || {};
     if (data.status === 'started') {
-        showToast('info', 'Deployment Started', `Deploying ${data.fileName}...`);
+        showToast('info', 'Deployment Started', `Deploying ${details.fileName || 'file'}...`);
     } else if (data.status === 'completed') {
-        showToast('success', 'Deployment Complete', `${data.fileName} deployed successfully`);
+        showToast('success', 'Deployment Complete', `${details.fileName || 'File'} deployed successfully`);
         refreshHistory();
     } else if (data.status === 'failed') {
-        showToast('error', 'Deployment Failed', data.message || 'Unknown error');
+        showToast('error', 'Deployment Failed', details.message || 'Unknown error');
         refreshHistory();
     } else if (data.status === 'progress') {
         // Update progress bar if visible
-        updateUploadProgress(data.progress, data.message);
+        updateUploadProgress(details.progress, details.message);
     }
 }
 
@@ -1024,64 +976,6 @@ function showInstanceContent(index, totalInstances) {
     }
 }
 
-/* ==========================================================================
-   Auto-Refresh Functions
-   ========================================================================== */
-
-/**
- * Toggle auto-refresh on/off
- */
-function toggleAutoRefresh() {
-    const checkbox = document.getElementById('autoRefreshCheckbox');
-    _autoRefreshEnabled = checkbox.checked;
-
-    if (_autoRefreshEnabled) {
-        startAutoRefresh();
-    } else {
-        stopAutoRefresh();
-    }
-
-    updateAutoRefreshUI();
-}
-
-/**
- * Start the auto-refresh interval
- */
-function startAutoRefresh() {
-    if (_autoRefreshIntervalId) {
-        clearInterval(_autoRefreshIntervalId);
-    }
-
-    _autoRefreshIntervalId = setInterval(function() {
-        if (_serverAvailable) {
-            refreshStatus();
-        }
-    }, _autoRefreshInterval);
-}
-
-/**
- * Stop the auto-refresh interval
- */
-function stopAutoRefresh() {
-    if (_autoRefreshIntervalId) {
-        clearInterval(_autoRefreshIntervalId);
-        _autoRefreshIntervalId = null;
-    }
-}
-
-/**
- * Change the auto-refresh interval
- */
-function changeRefreshInterval() {
-    const select = document.getElementById('refreshIntervalSelect');
-    _autoRefreshInterval = parseInt(select.value, 10);
-
-    // Restart interval if auto-refresh is enabled
-    if (_autoRefreshEnabled) {
-        startAutoRefresh();
-    }
-}
-
 /**
  * Update the last refresh timestamp display
  */
@@ -1090,28 +984,6 @@ function updateLastRefreshTime() {
     const element = document.getElementById('lastRefreshTime');
     if (element) {
         element.textContent = _lastRefreshTime.toLocaleTimeString();
-    }
-}
-
-/**
- * Update auto-refresh UI state (button appearance, etc.)
- */
-function updateAutoRefreshUI() {
-    const checkbox = document.getElementById('autoRefreshCheckbox');
-    const select = document.getElementById('refreshIntervalSelect');
-    const statusIndicator = document.getElementById('autoRefreshStatus');
-
-    if (checkbox) {
-        checkbox.checked = _autoRefreshEnabled;
-    }
-
-    if (select) {
-        select.disabled = !_autoRefreshEnabled;
-    }
-
-    if (statusIndicator) {
-        statusIndicator.classList.toggle('active', _autoRefreshEnabled);
-        statusIndicator.title = _autoRefreshEnabled ? 'Auto-refresh active' : 'Auto-refresh disabled';
     }
 }
 
@@ -1786,12 +1658,9 @@ document.addEventListener("DOMContentLoaded", async function() {
     toggleNotice();
     refreshStatus();
     refreshHistory();
-    updateAutoRefreshUI();
     initLogViewer();
     // Fetch initial CSRF token
     await fetchCsrfToken();
-    // Register Service Worker for offline support
-    registerServiceWorker();
     // Initialize WebSocket for real-time updates
     initWebSocket();
 });

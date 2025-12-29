@@ -17,7 +17,75 @@ const int CSRF_TOKEN_LENGTH = 32;
 const int CSRF_TOKEN_EXPIRY_SECONDS = 3600; // 1 hour
 
 // Static storage for CSRF tokens: mapping[token] = expiryTime
-static mapping _csrfTokens;
+mapping _csrfTokens;
+
+// WebSocket connections: mapping[idx] = connectionInfo
+mapping _wsConnections;
+
+// Last pmon JSON value for change detection
+string _lastPmonJson;
+
+/**
+ * Callback for pmon datapoint changes - broadcasts to WebSocket clients
+ * This function is outside the class because dpConnect cannot call static class methods
+ */
+void _cbPmonChanged(dyn_string dpes, dyn_string values)
+{
+  // Skip if no WebSocket clients connected
+  if (mappinglen(_wsConnections) == 0)
+  {
+    return;
+  }
+
+  // Build the response JSON
+  mapping response;
+  response["type"] = "pmon";
+  response["instances"] = makeDynMapping();
+
+  for (int i = 1; i <= dynlen(values); i++)
+  {
+    if (values[i] != "")
+    {
+      mapping obj = jsonDecode(values[i]);
+      dynAppend(response["instances"], obj);
+    }
+  }
+  response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+  string jsonResponse = jsonEncode(response);
+
+  // Only broadcast if data actually changed
+  if (jsonResponse == _lastPmonJson)
+  {
+    return;
+  }
+  _lastPmonJson = jsonResponse;
+
+  // Send to all connected WebSocket clients
+  dyn_int failedConnections;
+  for (int i = 1; i <= mappinglen(_wsConnections); i++)
+  {
+    int connIdx = mappingGetKey(_wsConnections, i);
+    int rc = httpWriteWebSocket(connIdx, jsonResponse);
+    if (rc != 0)
+    {
+      dynAppend(failedConnections, connIdx);
+    }
+  }
+
+  // Clean up failed connections
+  for (int i = 1; i <= dynlen(failedConnections); i++)
+  {
+    mappingRemove(_wsConnections, failedConnections[i]);
+  }
+
+  if (dynlen(failedConnections) > 0)
+  {
+    DebugTN("WebSocket: Removed", dynlen(failedConnections), "failed connections");
+  }
+
+  DebugTN("WebSocket: Broadcasted pmon update to", mappinglen(_wsConnections), "clients");
+}
 
 //--------------------------------------------------------------------------------
 /*!
@@ -50,6 +118,41 @@ class ProjectDownloadHttpEndpoints
     httpConnect(handleRequestPmon, URL_BASE + "/pmon");
     httpConnect(handleRequestCsrfToken, URL_BASE + "/csrf-token");
     httpConnect(handleRequestHistory, URL_BASE + "/history");
+
+    // Static file endpoints for CSS and JS
+    httpConnect(serveStyleCss, URL_BASE + "/css/style.css", "text/css");
+    httpConnect(serveAppJs, URL_BASE + "/js/app.js", "application/javascript");
+
+    // WebSocket endpoint for real-time updates
+    httpConnect(handleWebSocket, URL_BASE + "/ws", "_websocket_");
+    DebugTN("WebSocket endpoint registered at", URL_BASE + "/ws");
+
+    // Subscribe to pmon datapoint changes for WebSocket broadcast
+    subscribeToPmonChanges();
+  }
+
+  /**
+   * Subscribe to pmon datapoint changes to broadcast updates via WebSocket
+   */
+  private static void subscribeToPmonChanges()
+  {
+    dyn_string dps = dpNames("*", DPT_PROJDOWN);
+    if (dynlen(dps) == 0)
+    {
+      DebugTN("WebSocket: No PROJECT_DOWNLOAD datapoints found, skipping pmon subscription");
+      return;
+    }
+
+    // Connect to all pmon DPEs
+    dyn_string pmonDpes;
+    for (int i = 1; i <= dynlen(dps); i++)
+    {
+      dynAppend(pmonDpes, dps[i] + ".pmon");
+    }
+
+    // Use dpConnect to monitor changes - callback is outside the class
+    dpConnect("_cbPmonChanged", false, pmonDpes);
+    DebugTN("WebSocket: Subscribed to pmon changes on", dynlen(pmonDpes), "datapoints");
   }
 
   static void handleRequestRestart(string content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
@@ -177,8 +280,216 @@ class ProjectDownloadHttpEndpoints
   static string mainPage()
   {
     string res;
-    fileToString(PROJ_PATH + DATA_REL_PATH + "html/proj.html", res);
+    fileToString(getPath(DATA_REL_PATH, "html/proj.html"), res);
     return res;
+  }
+
+  /**
+   * Serve the CSS stylesheet
+   * @return CSS file content
+   */
+  static string serveStyleCss()
+  {
+    string res;
+    fileToString(getPath(DATA_REL_PATH, "html/css/style.css"), res);
+    return res;
+  }
+
+  /**
+   * Serve the JavaScript application file
+   * @return JavaScript file content
+   */
+  static string serveAppJs()
+  {
+    string res;
+    fileToString(getPath(DATA_REL_PATH, "html/js/app.js"), res);
+    return res;
+  }
+
+  /* ==========================================================================
+     WebSocket Management
+     ========================================================================== */
+
+  /**
+   * Handle WebSocket connections for real-time updates
+   * @param map Connection mapping containing idx, headers, user, ip
+   */
+  static void handleWebSocket(mapping map)
+  {
+    int idx = map["idx"];
+    string user = map["user"];
+    string ip = map["ip"];
+
+    DebugTN("WebSocket: New connection from", ip, "user:", user, "idx:", idx);
+
+    // Store connection info
+    mapping connInfo;
+    connInfo["user"] = user;
+    connInfo["ip"] = ip;
+    connInfo["connectedAt"] = getCurrentTime();
+    _wsConnections[idx] = connInfo;
+
+    // Send initial pmon data
+    sendPmonUpdate(idx);
+
+    // Read messages from client
+    mixed message;
+    while (httpReadWebSocket(idx, message) == 0)
+    {
+      handleWebSocketMessage(idx, message);
+    }
+
+    // Connection closed
+    DebugTN("WebSocket: Connection closed, idx:", idx);
+    mappingRemove(_wsConnections, idx);
+  }
+
+  /**
+   * Handle incoming WebSocket message
+   * @param idx Connection index
+   * @param message Received message
+   */
+  private static void handleWebSocketMessage(int idx, mixed message)
+  {
+    mapping msg;
+    if (getType(message) == STRING_VAR)
+    {
+      msg = jsonDecode(message);
+    }
+    else
+    {
+      return;
+    }
+
+    string msgType = msg["type"];
+    DebugTN("WebSocket: Received message type:", msgType, "from idx:", idx);
+
+    if (msgType == "heartbeat")
+    {
+      // Respond to heartbeat
+      mapping response;
+      response["type"] = "heartbeat";
+      response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+      httpWriteWebSocket(idx, jsonEncode(response));
+    }
+    else if (msgType == "subscribe")
+    {
+      // Client wants to subscribe to updates - send current state
+      sendPmonUpdate(idx);
+    }
+    else if (msgType == "getPmon")
+    {
+      // Client requests pmon data
+      sendPmonUpdate(idx);
+    }
+  }
+
+  /**
+   * Send pmon update to a specific WebSocket client
+   * @param idx Connection index
+   */
+  private static void sendPmonUpdate(int idx)
+  {
+    dyn_string dps = dpNames("*", DPT_PROJDOWN);
+    dyn_string dpes;
+    for (int i = 1; i <= dynlen(dps); i++)
+    {
+      dpes[i] = dps[i] + ".pmon";
+    }
+    dyn_string values;
+    dpGet(dpes, values);
+
+    mapping response;
+    response["type"] = "pmon";
+    response["instances"] = makeDynMapping();
+    for (int i = 1; i <= dynlen(dpes); i++)
+    {
+      mapping obj = jsonDecode(values[i]);
+      dynAppend(response["instances"], obj);
+    }
+    response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+    httpWriteWebSocket(idx, jsonEncode(response));
+  }
+
+  /**
+   * Broadcast pmon update to all connected WebSocket clients
+   * Call this function when pmon data changes
+   */
+  public static void broadcastPmonUpdate()
+  {
+    if (mappinglen(_wsConnections) == 0)
+    {
+      return;
+    }
+
+    dyn_string dps = dpNames("*", DPT_PROJDOWN);
+    dyn_string dpes;
+    for (int i = 1; i <= dynlen(dps); i++)
+    {
+      dpes[i] = dps[i] + ".pmon";
+    }
+    dyn_string values;
+    dpGet(dpes, values);
+
+    mapping response;
+    response["type"] = "pmon";
+    response["instances"] = makeDynMapping();
+    for (int i = 1; i <= dynlen(dpes); i++)
+    {
+      mapping obj = jsonDecode(values[i]);
+      dynAppend(response["instances"], obj);
+    }
+    response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+    string jsonResponse = jsonEncode(response);
+
+    // Send to all connected clients
+    for (int i = 1; i <= mappinglen(_wsConnections); i++)
+    {
+      int connIdx = mappingGetKey(_wsConnections, i);
+      httpWriteWebSocket(connIdx, jsonResponse);
+    }
+
+    DebugTN("WebSocket: Broadcasted pmon update to", mappinglen(_wsConnections), "clients");
+  }
+
+  /**
+   * Broadcast deployment status update to all connected clients
+   * @param status Deployment status (started, progress, completed, failed)
+   * @param details Additional details mapping
+   */
+  public static void broadcastDeploymentUpdate(string status, mapping details)
+  {
+    if (mappinglen(_wsConnections) == 0)
+    {
+      return;
+    }
+
+    mapping response;
+    response["type"] = "deployment";
+    response["status"] = status;
+    response["details"] = details;
+    response["timestamp"] = formatTime("%Y-%m-%dT%H:%M:%S", getCurrentTime());
+
+    string jsonResponse = jsonEncode(response);
+
+    for (int i = 1; i <= mappinglen(_wsConnections); i++)
+    {
+      int connIdx = mappingGetKey(_wsConnections, i);
+      httpWriteWebSocket(connIdx, jsonResponse);
+    }
+
+    DebugTN("WebSocket: Broadcasted deployment update:", status);
+  }
+
+  /**
+   * Get number of connected WebSocket clients
+   * @return Number of active connections
+   */
+  public static int getWebSocketClientCount()
+  {
+    return mappinglen(_wsConnections);
   }
 
   static string handleRequestPmon()
