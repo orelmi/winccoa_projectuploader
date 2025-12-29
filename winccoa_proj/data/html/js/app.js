@@ -64,13 +64,23 @@ function toggleNotice() {
  */
 function handleDownload(event) {
     event.preventDefault();
+
+    const fileInput = document.querySelector('input[name="dateiupload"]');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showToast('warning', 'No File', 'Please select a ZIP file first');
+        return;
+    }
+
     const checkbox = document.getElementById("restartProject");
 
     if (checkbox.checked) {
         pendingEvent = event;
         document.getElementById("confirmationModal").style.display = "block";
     } else {
-        downloadFile(event);
+        // Show ZIP preview
+        previewZipFile(file);
     }
 }
 
@@ -81,7 +91,11 @@ function handleDownload(event) {
 function confirmDownload(confirmed) {
     document.getElementById("confirmationModal").style.display = "none";
     if (confirmed) {
-        downloadFile(pendingEvent);
+        const fileInput = document.querySelector('input[name="dateiupload"]');
+        const file = fileInput.files[0];
+        if (file) {
+            previewZipFile(file);
+        }
     }
 }
 
@@ -683,6 +697,9 @@ function initLogViewer() {
    Deployment History Functions
    ========================================================================== */
 
+// Store history data for filtering
+let _historyData = [];
+
 /**
  * Refresh deployment history from server
  */
@@ -690,7 +707,8 @@ function refreshHistory() {
     fetch('/project/history')
         .then(response => response.json())
         .then(data => {
-            renderHistory(data.history || []);
+            _historyData = data.history || [];
+            renderHistory(_historyData);
             updateHistoryCount(data.totalCount || 0);
         })
         .catch(error => {
@@ -743,6 +761,77 @@ function renderHistory(history) {
 }
 
 /**
+ * Filter history based on search and status filter
+ */
+function filterHistory() {
+    const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+    const statusFilter = document.getElementById('historyStatusFilter').value;
+
+    const filtered = _historyData.filter(entry => {
+        // Status filter
+        if (statusFilter === 'success' && entry.status !== 0) return false;
+        if (statusFilter === 'failed' && entry.status === 0) return false;
+
+        // Search filter
+        if (searchTerm) {
+            const searchableText = [
+                entry.timestamp,
+                entry.fileName,
+                entry.user,
+                entry.hostname
+            ].join(' ').toLowerCase();
+
+            if (!searchableText.includes(searchTerm)) return false;
+        }
+
+        return true;
+    });
+
+    renderHistory(filtered);
+    updateHistoryCount(filtered.length);
+}
+
+/**
+ * Export history to CSV file
+ */
+function exportHistoryCSV() {
+    if (!_historyData || _historyData.length === 0) {
+        showToast('warning', 'No Data', 'No deployment history to export');
+        return;
+    }
+
+    // CSV header
+    const headers = ['Date/Time', 'File Name', 'Size (bytes)', 'User', 'Host', 'Status', 'Message'];
+    const csvRows = [headers.join(',')];
+
+    // CSV data rows
+    _historyData.forEach(entry => {
+        const row = [
+            `"${entry.timestamp || ''}"`,
+            `"${entry.fileName || ''}"`,
+            entry.fileSize || 0,
+            `"${entry.user || ''}"`,
+            `"${entry.hostname || ''}"`,
+            entry.status === 0 ? 'Success' : 'Failed',
+            `"${(entry.statusMessage || '').replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(','));
+    });
+
+    // Create and download file
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `deployment_history_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    showToast('success', 'Export Complete', `${_historyData.length} entries exported to CSV`);
+}
+
+/**
  * Format file size to human readable format
  * @param {number} bytes - Size in bytes
  * @returns {string} Formatted size
@@ -767,6 +856,223 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/* ==========================================================================
+   Toast Notifications
+   ========================================================================== */
+
+/**
+ * Show a toast notification
+ * @param {string} type - Toast type: 'success', 'error', 'warning', 'info'
+ * @param {string} title - Toast title
+ * @param {string} message - Toast message
+ * @param {number} duration - Duration in ms (default: 5000)
+ */
+function showToast(type, title, message, duration = 5000) {
+    const container = document.getElementById('toastContainer');
+
+    const icons = {
+        success: '\u2713',
+        error: '\u2717',
+        warning: '\u26A0',
+        info: '\u2139'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <div class="toast-content">
+            <div class="toast-title">${escapeHtml(title)}</div>
+            <div class="toast-message">${escapeHtml(message)}</div>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">\u00D7</button>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto-remove after duration
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+/* ==========================================================================
+   ZIP Preview Functions
+   ========================================================================== */
+
+// Store pending file for upload
+let _pendingZipFile = null;
+
+/**
+ * Preview ZIP contents before upload
+ * @param {File} file - The ZIP file to preview
+ */
+async function previewZipFile(file) {
+    _pendingZipFile = file;
+
+    // Update info
+    document.getElementById('zipFileName').textContent = file.name;
+    document.getElementById('zipFileSize').textContent = formatFileSize(file.size);
+
+    // Read ZIP contents using JSZip-like approach (simplified)
+    const tbody = document.getElementById('zipPreviewBody');
+    tbody.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+
+    try {
+        const entries = await readZipEntries(file);
+        document.getElementById('zipFileCount').textContent = entries.length + ' files';
+
+        let html = '';
+        entries.forEach(entry => {
+            const sizeStr = entry.isDirectory ? '-' : formatFileSize(entry.size);
+            const pathClass = entry.isBlocked ? 'zip-file-warning' : '';
+            html += `<tr>
+                <td class="${pathClass}">${escapeHtml(entry.path)}</td>
+                <td class="file-size">${sizeStr}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html || '<tr><td colspan="2">Empty archive</td></tr>';
+
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="2" class="zip-file-warning">Error reading ZIP: ${escapeHtml(error.message)}</td></tr>`;
+    }
+
+    // Show modal
+    document.getElementById('zipPreviewModal').style.display = 'block';
+}
+
+/**
+ * Read ZIP file entries (simplified - reads central directory)
+ * @param {File} file - ZIP file
+ * @returns {Promise<Array>} Array of file entries
+ */
+async function readZipEntries(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const entries = parseZipDirectory(data);
+                resolve(entries);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+/**
+ * Parse ZIP central directory to get file list
+ * @param {Uint8Array} data - ZIP file data
+ * @returns {Array} File entries
+ */
+function parseZipDirectory(data) {
+    const entries = [];
+    const view = new DataView(data.buffer);
+
+    // Find End of Central Directory
+    let eocdOffset = -1;
+    for (let i = data.length - 22; i >= 0; i--) {
+        if (view.getUint32(i, true) === 0x06054b50) {
+            eocdOffset = i;
+            break;
+        }
+    }
+
+    if (eocdOffset === -1) {
+        throw new Error('Invalid ZIP file');
+    }
+
+    const cdOffset = view.getUint32(eocdOffset + 16, true);
+    const cdSize = view.getUint32(eocdOffset + 12, true);
+    const entryCount = view.getUint16(eocdOffset + 10, true);
+
+    // Parse central directory
+    let offset = cdOffset;
+    for (let i = 0; i < entryCount && offset < cdOffset + cdSize; i++) {
+        if (view.getUint32(offset, true) !== 0x02014b50) break;
+
+        const compSize = view.getUint32(offset + 20, true);
+        const uncompSize = view.getUint32(offset + 24, true);
+        const nameLen = view.getUint16(offset + 28, true);
+        const extraLen = view.getUint16(offset + 30, true);
+        const commentLen = view.getUint16(offset + 32, true);
+
+        const nameBytes = data.slice(offset + 46, offset + 46 + nameLen);
+        const path = new TextDecoder().decode(nameBytes);
+
+        const isDirectory = path.endsWith('/');
+        const isBlocked = path.includes('..') || path.startsWith('/');
+
+        entries.push({
+            path: path,
+            size: uncompSize,
+            compressedSize: compSize,
+            isDirectory: isDirectory,
+            isBlocked: isBlocked
+        });
+
+        offset += 46 + nameLen + extraLen + commentLen;
+    }
+
+    return entries;
+}
+
+/**
+ * Close ZIP preview modal
+ */
+function closeZipPreview() {
+    document.getElementById('zipPreviewModal').style.display = 'none';
+    _pendingZipFile = null;
+}
+
+/**
+ * Confirm ZIP upload after preview
+ */
+function confirmZipUpload() {
+    closeZipPreview();
+
+    if (_pendingZipFile) {
+        // Trigger the actual upload
+        uploadZipFile(_pendingZipFile);
+    }
+}
+
+/**
+ * Upload ZIP file to server
+ * @param {File} file - The ZIP file to upload
+ */
+async function uploadZipFile(file) {
+    const formData = new FormData();
+    formData.append('dateiupload', file);
+    formData.append('restartProject', document.getElementById('restartProject').checked);
+    formData.append('csrfToken', getCsrfToken());
+
+    showToast('info', 'Uploading', 'Deploying ' + file.name + '...');
+
+    try {
+        const response = await fetch('/project/download', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            showToast('success', 'Deployment Started', 'File uploaded successfully');
+            // Refresh CSRF token after use
+            await fetchCsrfToken();
+            // Refresh history after a delay
+            setTimeout(refreshHistory, 2000);
+        } else {
+            showToast('error', 'Upload Failed', 'Server returned: ' + response.status);
+        }
+    } catch (error) {
+        showToast('error', 'Upload Error', error.message);
+    }
 }
 
 /* ==========================================================================

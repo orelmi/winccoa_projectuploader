@@ -94,6 +94,13 @@
                     <div class="history-toolbar">
                         <div class="toolbar-left">
                             <input type="button" onclick="refreshHistory()" value="Refresh" class="btn-toolbar">
+                            <input type="button" onclick="exportHistoryCSV()" value="Export CSV" class="btn-toolbar btn-secondary">
+                            <input type="text" id="historySearch" placeholder="Search..." oninput="filterHistory()">
+                            <select id="historyStatusFilter" onchange="filterHistory()">
+                                <option value="">All status</option>
+                                <option value="success">Success</option>
+                                <option value="failed">Failed</option>
+                            </select>
                         </div>
                         <div class="toolbar-right">
                             <span id="historyCount">0 deployments</span>
@@ -201,5 +208,36 @@
             <p>Please wait while we try to reach the server...</p>
         </div>
     </div>
+
+    <!-- ZIP Preview Modal -->
+    <div id="zipPreviewModal" class="modal-overlay">
+        <div class="modal-content modal-large">
+            <h3>ZIP Contents Preview</h3>
+            <div class="zip-preview-info">
+                <span id="zipFileName">-</span>
+                <span id="zipFileSize">-</span>
+                <span id="zipFileCount">0 files</span>
+            </div>
+            <div class="zip-preview-container">
+                <table id="zipPreviewTable">
+                    <thead>
+                        <tr>
+                            <th>File Path</th>
+                            <th>Size</th>
+                        </tr>
+                    </thead>
+                    <tbody id="zipPreviewBody">
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button class="primary" onclick="confirmZipUpload()">Deploy</button>
+                <button onclick="closeZipPreview()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
 </body>
 </html>
