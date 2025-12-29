@@ -6,70 +6,71 @@
  */
 
 /* ==========================================================================
-   Siemens iX CSS Variables (Light Theme - Classic)
+   Siemens iX CSS Variables (Light Theme - Brand)
    Following Siemens Industrial Experience design system
+   Color palette from Siemens Element: https://element.siemens.io/fundamentals/colors/color-palette/
    ========================================================================== */
 
 :root,
 [data-ix-color-schema="light"] {
-    /* Siemens iX Theme Colors */
-    --theme-color-primary: #009999;
-    --theme-color-primary-hover: #007a7a;
-    --theme-color-primary-active: #006666;
-    --theme-color-primary-contrast: #ffffff;
+    /* Siemens Brand Theme Colors */
+    --theme-color-primary: #009999;           /* Petrol - Siemens primary */
+    --theme-color-primary-hover: #006B80;     /* Interactive Blue 500 */
+    --theme-color-primary-active: #004F60;    /* Interactive Blue 700 */
+    --theme-color-primary-contrast: #FFFFFF;
 
-    /* Background colors (color-0 to color-4) */
-    --theme-color-background: #ffffff;
-    --theme-color-1: #f5f5f5;
-    --theme-color-2: #e8e8e8;
-    --theme-color-3: #d9d9d9;
-    --theme-color-4: #cccccc;
+    /* Background colors - Siemens Brand Light palette */
+    --theme-color-background: #FFFFFF;        /* White */
+    --theme-color-1: #F3F3F0;                 /* Light Sand */
+    --theme-color-2: #EDEDE8;                 /* Soft Sand */
+    --theme-color-3: #DEDED7;                 /* Dark Sand */
+    --theme-color-4: #CCCCD4;                 /* Deep Blue 200 */
 
     /* Component & interaction colors */
-    --theme-color-component-1: #ffffff;
-    --theme-color-component-2: #f5f5f5;
-    --theme-color-component-hover: #e8e8e8;
-    --theme-color-component-active: #d9d9d9;
-    --theme-color-component-pressed: #cccccc;
+    --theme-color-component-1: #FFFFFF;       /* White */
+    --theme-color-component-2: #F3F3F0;       /* Light Sand */
+    --theme-color-component-hover: #EDEDE8;   /* Soft Sand */
+    --theme-color-component-active: #DEDED7;  /* Dark Sand */
+    --theme-color-component-pressed: #CCCCD4; /* Deep Blue 200 */
 
-    /* Text colors */
-    --theme-color-std-text: #1a1a1a;
-    --theme-color-soft-text: #6b6b6b;
-    --theme-color-contrast-text: #000000;
-    --theme-color-inv-std-text: #ffffff;
-    --theme-color-inv-soft-text: #b3b3b3;
+    /* Text colors - Deep Blue scale */
+    --theme-color-std-text: #000028;          /* Deep Blue 900 */
+    --theme-color-soft-text: #66667E;         /* Deep Blue 600 */
+    --theme-color-contrast-text: #000028;     /* Deep Blue 900 */
+    --theme-color-inv-std-text: #FFFFFF;      /* White */
+    --theme-color-inv-soft-text: #B3B3BE;     /* Deep Blue 300 */
 
-    /* Status colors - Alarm/Critical/Warning/Success/Info */
-    --theme-color-alarm: #d42a1e;
-    --theme-color-alarm-bg: #fce4e4;
-    --theme-color-alarm-text: #8a1510;
+    /* Status colors - Siemens Brand palette */
+    --theme-color-alarm: #D72339;             /* Red 500 */
+    --theme-color-alarm-bg: #FCCCD7;          /* Red 100 */
+    --theme-color-alarm-text: #A60823;        /* Red 700 */
 
-    --theme-color-critical: #e85c00;
-    --theme-color-critical-bg: #fff3e0;
-    --theme-color-critical-text: #993d00;
+    --theme-color-critical: #FF9000;          /* Orange 500 */
+    --theme-color-critical-bg: #FEE1CC;       /* Orange 100 */
+    --theme-color-critical-text: #C75300;     /* Orange 700 */
 
-    --theme-color-warning: #f0ab00;
-    --theme-color-warning-bg: #fff8e1;
-    --theme-color-warning-text: #8a6200;
+    --theme-color-warning: #EDBF00;           /* Yellow 500 */
+    --theme-color-warning-bg: #FFF2BA;        /* Yellow 100 */
+    --theme-color-warning-text: #876D00;      /* Yellow 700 */
 
-    --theme-color-success: #1a8038;
-    --theme-color-success-bg: #e8f5e9;
-    --theme-color-success-text: #0d4a1f;
+    --theme-color-success: #28BF66;           /* Green 500 */
+    --theme-color-success-bg: #C1F2D6;        /* Green 100 */
+    --theme-color-success-text: #1C703F;      /* Green 700 */
 
-    --theme-color-info: #0066b3;
-    --theme-color-info-bg: #e3f2fd;
-    --theme-color-info-text: #003d6b;
+    --theme-color-info: #206ED9;              /* Blue 500 */
+    --theme-color-info-bg: #D2E2F7;           /* Blue 100 */
+    --theme-color-info-text: #1E5299;         /* Blue 700 */
 
-    /* Border colors */
-    --theme-color-weak-bdr: #e0e0e0;
-    --theme-color-std-bdr: #cccccc;
-    --theme-color-strong-bdr: #9e9e9e;
-    --theme-color-focus-bdr: #009999;
+    /* Border colors - Deep Blue scale */
+    --theme-color-weak-bdr: #E5E5E9;          /* Deep Blue 100 */
+    --theme-color-std-bdr: #CCCCD4;           /* Deep Blue 200 */
+    --theme-color-strong-bdr: #9999A9;        /* Deep Blue 400 */
+    --theme-color-focus-bdr: #199FFF;         /* Focus Blue */
 
     /* Shadow */
-    --theme-shadow-1: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --theme-shadow-2: 0 4px 8px rgba(0, 0, 0, 0.12);
-    --theme-shadow-3: 0 8px 16px rgba(0, 0, 0, 0.15);
+    --theme-shadow-1: 0 2px 4px rgba(0, 0, 40, 0.08);
+    --theme-shadow-2: 0 4px 8px rgba(0, 0, 40, 0.12);
+    --theme-shadow-3: 0 8px 16px rgba(0, 0, 40, 0.16);
 
     /* Legacy mappings for compatibility */
     --bg-primary: var(--theme-color-1);
@@ -88,82 +89,83 @@
     --accent-primary: var(--theme-color-primary);
     --accent-primary-hover: var(--theme-color-primary-hover);
     --accent-danger: var(--theme-color-alarm);
-    --accent-danger-hover: #b8221a;
+    --accent-danger-hover: #A60823;           /* Red 700 */
     --status-success-bg: var(--theme-color-success-bg);
     --status-success-text: var(--theme-color-success-text);
     --status-error-bg: var(--theme-color-alarm-bg);
     --status-error-text: var(--theme-color-alarm-text);
     --status-warning-bg: var(--theme-color-warning-bg);
     --status-warning-text: var(--theme-color-warning-text);
-    --shadow-light: rgba(0, 0, 0, 0.1);
-    --shadow-medium: rgba(0, 0, 0, 0.2);
+    --shadow-light: rgba(0, 0, 40, 0.1);
+    --shadow-medium: rgba(0, 0, 40, 0.2);
     --tab-bg: var(--theme-color-2);
     --tab-active-bg: var(--theme-color-component-1);
 }
 
 /* ==========================================================================
-   Siemens iX Dark Theme (Classic Dark)
+   Siemens iX Dark Theme (Brand Dark)
+   Color palette from Siemens Element: https://element.siemens.io/fundamentals/colors/color-palette/
    ========================================================================== */
 
 [data-ix-color-schema="dark"] {
-    /* Siemens iX Theme Colors - Dark variant */
-    --theme-color-primary: #00b8b8;
-    --theme-color-primary-hover: #00d6d6;
-    --theme-color-primary-active: #00f0f0;
-    --theme-color-primary-contrast: #000000;
+    /* Siemens Brand Theme Colors - Dark variant */
+    --theme-color-primary: #00FFB9;           /* Bold Green - primary accent for dark */
+    --theme-color-primary-hover: #C2FFEE;     /* Light Bold Green */
+    --theme-color-primary-active: #73BAC9;    /* Interactive Blue 300 */
+    --theme-color-primary-contrast: #000028;  /* Deep Blue 900 */
 
-    /* Background colors (dark palette) */
-    --theme-color-background: #0a0a0a;
-    --theme-color-1: #141414;
-    --theme-color-2: #1e1e1e;
-    --theme-color-3: #282828;
-    --theme-color-4: #323232;
+    /* Background colors - Siemens Brand Dark palette (Deep Blue scale) */
+    --theme-color-background: #000028;        /* Deep Blue 900 */
+    --theme-color-1: #12122E;                 /* Deep Blue 875 */
+    --theme-color-2: #23233C;                 /* Deep Blue 800 */
+    --theme-color-3: #333353;                 /* Deep Blue 750 */
+    --theme-color-4: #40405E;                 /* Deep Blue 755 */
 
     /* Component & interaction colors - dark */
-    --theme-color-component-1: #1e1e1e;
-    --theme-color-component-2: #282828;
-    --theme-color-component-hover: #323232;
-    --theme-color-component-active: #3c3c3c;
-    --theme-color-component-pressed: #464646;
+    --theme-color-component-1: #23233C;       /* Deep Blue 800 */
+    --theme-color-component-2: #333353;       /* Deep Blue 750 */
+    --theme-color-component-hover: #40405E;   /* Deep Blue 755 */
+    --theme-color-component-active: #4C4C68;  /* Deep Blue 700 */
+    --theme-color-component-pressed: #66667E; /* Deep Blue 600 */
 
-    /* Text colors - dark theme inverted */
-    --theme-color-std-text: #e5e5e5;
-    --theme-color-soft-text: #9e9e9e;
-    --theme-color-contrast-text: #ffffff;
-    --theme-color-inv-std-text: #1a1a1a;
-    --theme-color-inv-soft-text: #6b6b6b;
+    /* Text colors - Light on dark */
+    --theme-color-std-text: #EBEBEE;          /* Deep Blue 50 */
+    --theme-color-soft-text: #9999A9;         /* Deep Blue 400 */
+    --theme-color-contrast-text: #FFFFFF;     /* White */
+    --theme-color-inv-std-text: #000028;      /* Deep Blue 900 */
+    --theme-color-inv-soft-text: #66667E;     /* Deep Blue 600 */
 
-    /* Status colors - Dark theme variants */
-    --theme-color-alarm: #ff5a52;
-    --theme-color-alarm-bg: #3d1a17;
-    --theme-color-alarm-text: #ff8a84;
+    /* Status colors - Dark theme variants (lighter for visibility) */
+    --theme-color-alarm: #FE8389;             /* Red 300 */
+    --theme-color-alarm-bg: #650011;          /* Red 900 */
+    --theme-color-alarm-text: #FCCCD7;        /* Red 100 */
 
-    --theme-color-critical: #ff8c40;
-    --theme-color-critical-bg: #3d2a17;
-    --theme-color-critical-text: #ffb380;
+    --theme-color-critical: #FFBA4A;          /* Orange 300 */
+    --theme-color-critical-bg: #8F3700;       /* Orange 900 */
+    --theme-color-critical-text: #FEE1CC;     /* Orange 100 */
 
-    --theme-color-warning: #ffcc00;
-    --theme-color-warning-bg: #3d3517;
-    --theme-color-warning-text: #ffe066;
+    --theme-color-warning: #FFD732;           /* Yellow 300 */
+    --theme-color-warning-bg: #4D3901;        /* Yellow 900 */
+    --theme-color-warning-text: #FFF2BA;      /* Yellow 100 */
 
-    --theme-color-success: #4caf50;
-    --theme-color-success-bg: #1a3d1f;
-    --theme-color-success-text: #81c784;
+    --theme-color-success: #72E6A3;           /* Green 300 */
+    --theme-color-success-bg: #12331F;        /* Green 900 */
+    --theme-color-success-text: #C1F2D6;      /* Green 100 */
 
-    --theme-color-info: #42a5f5;
-    --theme-color-info-bg: #1a2a3d;
-    --theme-color-info-text: #90caf9;
+    --theme-color-info: #81ADEB;              /* Blue 300 */
+    --theme-color-info-bg: #193966;           /* Blue 900 */
+    --theme-color-info-text: #D2E2F7;         /* Blue 100 */
 
-    /* Border colors - dark */
-    --theme-color-weak-bdr: #2e2e2e;
-    --theme-color-std-bdr: #424242;
-    --theme-color-strong-bdr: #616161;
-    --theme-color-focus-bdr: #00b8b8;
+    /* Border colors - Deep Blue scale */
+    --theme-color-weak-bdr: #333353;          /* Deep Blue 750 */
+    --theme-color-std-bdr: #4C4C68;           /* Deep Blue 700 */
+    --theme-color-strong-bdr: #66667E;        /* Deep Blue 600 */
+    --theme-color-focus-bdr: #199FFF;         /* Focus Blue */
 
     /* Shadow - dark */
-    --theme-shadow-1: 0 2px 4px rgba(0, 0, 0, 0.3);
-    --theme-shadow-2: 0 4px 8px rgba(0, 0, 0, 0.35);
-    --theme-shadow-3: 0 8px 16px rgba(0, 0, 0, 0.4);
+    --theme-shadow-1: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --theme-shadow-2: 0 4px 8px rgba(0, 0, 0, 0.45);
+    --theme-shadow-3: 0 8px 16px rgba(0, 0, 0, 0.5);
 
     /* Legacy mappings */
     --bg-primary: var(--theme-color-1);
@@ -182,15 +184,15 @@
     --accent-primary: var(--theme-color-primary);
     --accent-primary-hover: var(--theme-color-primary-hover);
     --accent-danger: var(--theme-color-alarm);
-    --accent-danger-hover: #ff7a74;
+    --accent-danger-hover: #FCCCD7;           /* Red 100 */
     --status-success-bg: var(--theme-color-success-bg);
     --status-success-text: var(--theme-color-success-text);
     --status-error-bg: var(--theme-color-alarm-bg);
     --status-error-text: var(--theme-color-alarm-text);
     --status-warning-bg: var(--theme-color-warning-bg);
     --status-warning-text: var(--theme-color-warning-text);
-    --shadow-light: rgba(0, 0, 0, 0.3);
-    --shadow-medium: rgba(0, 0, 0, 0.5);
+    --shadow-light: rgba(0, 0, 0, 0.4);
+    --shadow-medium: rgba(0, 0, 0, 0.6);
     --tab-bg: var(--theme-color-2);
     --tab-active-bg: var(--theme-color-component-1);
 }
