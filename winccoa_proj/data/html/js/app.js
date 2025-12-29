@@ -21,34 +21,37 @@ let _csrfToken = null;
 let _csrfTokenExpiry = null;
 
 /* ==========================================================================
-   Dark Mode
+   Theme Management (Siemens iX Design System)
+   Uses data-ix-theme and data-ix-color-schema attributes
    ========================================================================== */
 
 /**
  * Initialize theme from localStorage or system preference
+ * Uses Siemens iX theme attributes: data-ix-theme="classic" data-ix-color-schema="light|dark"
  */
 function initTheme() {
-    const savedTheme = localStorage.getItem('theme');
+    const savedColorSchema = localStorage.getItem('ix-color-schema');
 
-    if (savedTheme) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
+    if (savedColorSchema) {
+        document.documentElement.setAttribute('data-ix-color-schema', savedColorSchema);
     } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.setAttribute('data-ix-color-schema', 'dark');
     }
+    // Default theme is 'classic' - already set in HTML
 }
 
 /**
- * Toggle between light and dark mode
+ * Toggle between light and dark color schema (Siemens iX style)
  */
 function toggleDarkMode() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    const currentSchema = document.documentElement.getAttribute('data-ix-color-schema');
+    const newSchema = currentSchema === 'dark' ? 'light' : 'dark';
 
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
+    document.documentElement.setAttribute('data-ix-color-schema', newSchema);
+    localStorage.setItem('ix-color-schema', newSchema);
 
     // Show toast notification
-    const themeName = newTheme === 'dark' ? 'Dark' : 'Light';
+    const themeName = newSchema === 'dark' ? 'Dark' : 'Light';
     showToast('info', 'Theme Changed', `${themeName} mode enabled`);
 }
 

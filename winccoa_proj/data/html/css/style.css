@@ -1,170 +1,296 @@
 /**
  * WinCC OA Project Manager - Stylesheet
  * Author: orelmi
+ * Design: Based on Siemens Industrial Experience (iX) Design System
+ * @see https://ix.siemens.io/
  */
 
 /* ==========================================================================
-   CSS Variables (Light Theme - Default)
+   Siemens iX CSS Variables (Light Theme - Classic)
+   Following Siemens Industrial Experience design system
    ========================================================================== */
 
-:root {
-    /* Background colors */
-    --bg-primary: #f9f9f9;
-    --bg-secondary: #ffffff;
-    --bg-header: #f2f2f2;
-    --bg-input: #ffffff;
-    --bg-hover: #eef3f7;
-    --bg-table-header: #f4f6f8;
-    --bg-table-alt: #f9f9f9;
+:root,
+[data-ix-color-schema="light"] {
+    /* Siemens iX Theme Colors */
+    --theme-color-primary: #009999;
+    --theme-color-primary-hover: #007a7a;
+    --theme-color-primary-active: #006666;
+    --theme-color-primary-contrast: #ffffff;
+
+    /* Background colors (color-0 to color-4) */
+    --theme-color-background: #ffffff;
+    --theme-color-1: #f5f5f5;
+    --theme-color-2: #e8e8e8;
+    --theme-color-3: #d9d9d9;
+    --theme-color-4: #cccccc;
+
+    /* Component & interaction colors */
+    --theme-color-component-1: #ffffff;
+    --theme-color-component-2: #f5f5f5;
+    --theme-color-component-hover: #e8e8e8;
+    --theme-color-component-active: #d9d9d9;
+    --theme-color-component-pressed: #cccccc;
 
     /* Text colors */
-    --text-primary: #333333;
-    --text-secondary: #666666;
-    --text-muted: #999999;
+    --theme-color-std-text: #1a1a1a;
+    --theme-color-soft-text: #6b6b6b;
+    --theme-color-contrast-text: #000000;
+    --theme-color-inv-std-text: #ffffff;
+    --theme-color-inv-soft-text: #b3b3b3;
+
+    /* Status colors - Alarm/Critical/Warning/Success/Info */
+    --theme-color-alarm: #d42a1e;
+    --theme-color-alarm-bg: #fce4e4;
+    --theme-color-alarm-text: #8a1510;
+
+    --theme-color-critical: #e85c00;
+    --theme-color-critical-bg: #fff3e0;
+    --theme-color-critical-text: #993d00;
+
+    --theme-color-warning: #f0ab00;
+    --theme-color-warning-bg: #fff8e1;
+    --theme-color-warning-text: #8a6200;
+
+    --theme-color-success: #1a8038;
+    --theme-color-success-bg: #e8f5e9;
+    --theme-color-success-text: #0d4a1f;
+
+    --theme-color-info: #0066b3;
+    --theme-color-info-bg: #e3f2fd;
+    --theme-color-info-text: #003d6b;
 
     /* Border colors */
-    --border-color: #cccccc;
-    --border-light: #eeeeee;
-    --border-input: #ced4da;
+    --theme-color-weak-bdr: #e0e0e0;
+    --theme-color-std-bdr: #cccccc;
+    --theme-color-strong-bdr: #9e9e9e;
+    --theme-color-focus-bdr: #009999;
 
-    /* Accent colors */
-    --accent-primary: #01656e;
-    --accent-primary-hover: #005057;
-    --accent-danger: #dc3545;
-    --accent-danger-hover: #c82333;
+    /* Shadow */
+    --theme-shadow-1: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --theme-shadow-2: 0 4px 8px rgba(0, 0, 0, 0.12);
+    --theme-shadow-3: 0 8px 16px rgba(0, 0, 0, 0.15);
 
-    /* Status colors */
-    --status-success-bg: #d4edda;
-    --status-success-text: #155724;
-    --status-error-bg: #f8d7da;
-    --status-error-text: #721c24;
-    --status-warning-bg: #fff3cd;
-    --status-warning-text: #856404;
-
-    /* Shadows */
-    --shadow-light: rgba(0,0,0,0.1);
-    --shadow-medium: rgba(0,0,0,0.2);
-
-    /* Tab colors */
-    --tab-bg: #f1f1f1;
-    --tab-active-bg: #ffffff;
+    /* Legacy mappings for compatibility */
+    --bg-primary: var(--theme-color-1);
+    --bg-secondary: var(--theme-color-component-1);
+    --bg-header: var(--theme-color-2);
+    --bg-input: var(--theme-color-background);
+    --bg-hover: var(--theme-color-component-hover);
+    --bg-table-header: var(--theme-color-2);
+    --bg-table-alt: var(--theme-color-1);
+    --text-primary: var(--theme-color-std-text);
+    --text-secondary: var(--theme-color-soft-text);
+    --text-muted: var(--theme-color-soft-text);
+    --border-color: var(--theme-color-std-bdr);
+    --border-light: var(--theme-color-weak-bdr);
+    --border-input: var(--theme-color-std-bdr);
+    --accent-primary: var(--theme-color-primary);
+    --accent-primary-hover: var(--theme-color-primary-hover);
+    --accent-danger: var(--theme-color-alarm);
+    --accent-danger-hover: #b8221a;
+    --status-success-bg: var(--theme-color-success-bg);
+    --status-success-text: var(--theme-color-success-text);
+    --status-error-bg: var(--theme-color-alarm-bg);
+    --status-error-text: var(--theme-color-alarm-text);
+    --status-warning-bg: var(--theme-color-warning-bg);
+    --status-warning-text: var(--theme-color-warning-text);
+    --shadow-light: rgba(0, 0, 0, 0.1);
+    --shadow-medium: rgba(0, 0, 0, 0.2);
+    --tab-bg: var(--theme-color-2);
+    --tab-active-bg: var(--theme-color-component-1);
 }
 
 /* ==========================================================================
-   Dark Theme
+   Siemens iX Dark Theme (Classic Dark)
    ========================================================================== */
 
-[data-theme="dark"] {
-    /* Background colors */
-    --bg-primary: #1a1a2e;
-    --bg-secondary: #16213e;
-    --bg-header: #0f0f23;
-    --bg-input: #1a1a2e;
-    --bg-hover: #2a2a4e;
-    --bg-table-header: #1f1f3a;
-    --bg-table-alt: #1a1a2e;
+[data-ix-color-schema="dark"] {
+    /* Siemens iX Theme Colors - Dark variant */
+    --theme-color-primary: #00b8b8;
+    --theme-color-primary-hover: #00d6d6;
+    --theme-color-primary-active: #00f0f0;
+    --theme-color-primary-contrast: #000000;
 
-    /* Text colors */
-    --text-primary: #e0e0e0;
-    --text-secondary: #a0a0a0;
-    --text-muted: #707070;
+    /* Background colors (dark palette) */
+    --theme-color-background: #0a0a0a;
+    --theme-color-1: #141414;
+    --theme-color-2: #1e1e1e;
+    --theme-color-3: #282828;
+    --theme-color-4: #323232;
 
-    /* Border colors */
-    --border-color: #3a3a5e;
-    --border-light: #2a2a4e;
-    --border-input: #4a4a6e;
+    /* Component & interaction colors - dark */
+    --theme-color-component-1: #1e1e1e;
+    --theme-color-component-2: #282828;
+    --theme-color-component-hover: #323232;
+    --theme-color-component-active: #3c3c3c;
+    --theme-color-component-pressed: #464646;
 
-    /* Accent colors */
-    --accent-primary: #1fb9d8;
-    --accent-primary-hover: #17a2b8;
+    /* Text colors - dark theme inverted */
+    --theme-color-std-text: #e5e5e5;
+    --theme-color-soft-text: #9e9e9e;
+    --theme-color-contrast-text: #ffffff;
+    --theme-color-inv-std-text: #1a1a1a;
+    --theme-color-inv-soft-text: #6b6b6b;
 
-    /* Shadows */
-    --shadow-light: rgba(0,0,0,0.3);
-    --shadow-medium: rgba(0,0,0,0.5);
+    /* Status colors - Dark theme variants */
+    --theme-color-alarm: #ff5a52;
+    --theme-color-alarm-bg: #3d1a17;
+    --theme-color-alarm-text: #ff8a84;
 
-    /* Tab colors */
-    --tab-bg: #1f1f3a;
-    --tab-active-bg: #16213e;
+    --theme-color-critical: #ff8c40;
+    --theme-color-critical-bg: #3d2a17;
+    --theme-color-critical-text: #ffb380;
+
+    --theme-color-warning: #ffcc00;
+    --theme-color-warning-bg: #3d3517;
+    --theme-color-warning-text: #ffe066;
+
+    --theme-color-success: #4caf50;
+    --theme-color-success-bg: #1a3d1f;
+    --theme-color-success-text: #81c784;
+
+    --theme-color-info: #42a5f5;
+    --theme-color-info-bg: #1a2a3d;
+    --theme-color-info-text: #90caf9;
+
+    /* Border colors - dark */
+    --theme-color-weak-bdr: #2e2e2e;
+    --theme-color-std-bdr: #424242;
+    --theme-color-strong-bdr: #616161;
+    --theme-color-focus-bdr: #00b8b8;
+
+    /* Shadow - dark */
+    --theme-shadow-1: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --theme-shadow-2: 0 4px 8px rgba(0, 0, 0, 0.35);
+    --theme-shadow-3: 0 8px 16px rgba(0, 0, 0, 0.4);
+
+    /* Legacy mappings */
+    --bg-primary: var(--theme-color-1);
+    --bg-secondary: var(--theme-color-component-1);
+    --bg-header: var(--theme-color-background);
+    --bg-input: var(--theme-color-2);
+    --bg-hover: var(--theme-color-component-hover);
+    --bg-table-header: var(--theme-color-2);
+    --bg-table-alt: var(--theme-color-1);
+    --text-primary: var(--theme-color-std-text);
+    --text-secondary: var(--theme-color-soft-text);
+    --text-muted: var(--theme-color-soft-text);
+    --border-color: var(--theme-color-std-bdr);
+    --border-light: var(--theme-color-weak-bdr);
+    --border-input: var(--theme-color-std-bdr);
+    --accent-primary: var(--theme-color-primary);
+    --accent-primary-hover: var(--theme-color-primary-hover);
+    --accent-danger: var(--theme-color-alarm);
+    --accent-danger-hover: #ff7a74;
+    --status-success-bg: var(--theme-color-success-bg);
+    --status-success-text: var(--theme-color-success-text);
+    --status-error-bg: var(--theme-color-alarm-bg);
+    --status-error-text: var(--theme-color-alarm-text);
+    --status-warning-bg: var(--theme-color-warning-bg);
+    --status-warning-text: var(--theme-color-warning-text);
+    --shadow-light: rgba(0, 0, 0, 0.3);
+    --shadow-medium: rgba(0, 0, 0, 0.5);
+    --tab-bg: var(--theme-color-2);
+    --tab-active-bg: var(--theme-color-component-1);
 }
 
 /* ==========================================================================
-   Base Styles
+   Base Styles - Siemens iX Typography
    ========================================================================== */
 
 body {
-    font-family: Arial, sans-serif;
+    /* Siemens iX uses Siemens Sans, falling back to system fonts */
+    font-family: "Siemens Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     margin: 0;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--theme-color-1);
+    color: var(--theme-color-std-text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Focus states - Siemens iX style */
+*:focus-visible {
+    outline: 2px solid var(--theme-color-focus-bdr);
+    outline-offset: 2px;
 }
 
 /* ==========================================================================
-   Header
+   Header - Siemens iX App Header Style
    ========================================================================== */
 
 .header {
     display: flex;
     align-items: center;
-    background-color: var(--bg-header);
-    padding: 10px 20px;
-    border-bottom: 1px solid var(--border-color);
+    background-color: var(--theme-color-2);
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--theme-color-std-bdr);
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
 }
 
 .header svg {
     height: 40px;
     width: 40px;
-    margin-right: 15px;
+    margin-right: 16px;
     flex-shrink: 0;
 }
 
 .header h1 {
-    font-size: 20px;
+    font-size: 18px;
+    font-weight: 600;
     margin: 0;
     flex-grow: 1;
+    color: var(--theme-color-std-text);
 }
 
-/* Dark Mode Toggle Button */
+/* Theme Toggle Button - Siemens iX Icon Button Style */
 .dark-mode-toggle {
-    background: none;
-    border: 2px solid var(--border-color);
-    border-radius: 20px;
-    padding: 6px 12px;
-    cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: 6px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px 16px;
+    border: 1px solid var(--theme-color-std-bdr);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
     font-size: 16px;
-    color: var(--text-primary);
-    transition: all 0.3s ease;
+    cursor: pointer;
+    transition: all 0.15s ease;
 }
 
 .dark-mode-toggle:hover {
-    border-color: var(--accent-primary);
-    background-color: var(--bg-hover);
+    background-color: var(--theme-color-component-hover);
+    border-color: var(--theme-color-primary);
+}
+
+.dark-mode-toggle:active {
+    background-color: var(--theme-color-component-active);
 }
 
 .icon-sun, .icon-moon {
-    transition: opacity 0.3s ease;
+    transition: opacity 0.2s ease;
 }
 
-/* Light mode: show sun, hide moon */
+/* Light mode: show sun icon */
 .icon-moon {
     display: none;
 }
 
-[data-theme="dark"] .icon-sun {
+[data-ix-color-schema="dark"] .icon-sun {
     display: none;
 }
 
-[data-theme="dark"] .icon-moon {
+[data-ix-color-schema="dark"] .icon-moon {
     display: inline;
 }
 
 /* ==========================================================================
-   Form Styles
+   Form Styles - Siemens iX Card & Input Components
    ========================================================================== */
 
 .form-wrapper {
@@ -172,60 +298,103 @@ body {
     justify-content: center;
     align-items: flex-start;
     min-height: calc(100vh - 70px);
-    padding: 20px;
+    padding: 24px;
 }
 
 .form-box {
-    background-color: var(--bg-secondary);
-    padding: 30px 40px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px var(--shadow-light);
+    background-color: var(--theme-color-component-1);
+    padding: 32px;
+    border-radius: 4px;
+    border: 1px solid var(--theme-color-weak-bdr);
+    box-shadow: var(--theme-shadow-2);
     width: 100%;
     max-width: 500px;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-box h2 {
     margin-top: 0;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     text-align: center;
-    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--theme-color-std-text);
 }
 
 .form-box label {
     display: block;
     margin-bottom: 8px;
-    font-weight: bold;
-    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--theme-color-std-text);
 }
 
-.form-box input[type="button"],
+/* Siemens iX Input Styles */
 .form-box input[type="file"],
+.form-box input[type="text"],
+.form-box select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border: 1px solid var(--theme-color-std-bdr);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    font-size: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-box input[type="file"]:hover,
+.form-box input[type="text"]:hover,
+.form-box select:hover {
+    border-color: var(--theme-color-strong-bdr);
+}
+
+.form-box input[type="file"]:focus,
+.form-box input[type="text"]:focus,
+.form-box select:focus {
+    border-color: var(--theme-color-primary);
+    box-shadow: 0 0 0 2px rgba(0, 153, 153, 0.2);
+    outline: none;
+}
+
+/* Siemens iX Primary Button */
+.form-box input[type="button"],
 .form-box input[type="submit"] {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: var(--bg-input);
-    color: var(--text-primary);
-}
-
-.form-box input[type="button"],
-.form-box input[type="submit"] {
-    background-color: var(--accent-primary);
-    color: white;
+    padding: 12px 24px;
+    margin-bottom: 16px;
     border: none;
+    border-radius: 4px;
+    background-color: var(--theme-color-primary);
+    color: var(--theme-color-primary-contrast);
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.15s ease;
 }
 
 .form-box input[type="button"]:hover,
 .form-box input[type="submit"]:hover {
-    background-color: var(--accent-primary-hover);
+    background-color: var(--theme-color-primary-hover);
+}
+
+.form-box input[type="button"]:active,
+.form-box input[type="submit"]:active {
+    background-color: var(--theme-color-primary-active);
+}
+
+/* Checkbox styling */
+.form-box input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--theme-color-primary);
+    margin-right: 8px;
+    vertical-align: middle;
 }
 
 /* ==========================================================================
-   Tab Navigation
+   Tab Navigation - Siemens iX Tabs Style
    ========================================================================== */
 
 .tab-menu {
@@ -233,35 +402,42 @@ body {
     padding: 0;
     margin: 0;
     display: flex;
-    border-bottom: 1px solid var(--border-color);
+    background-color: var(--theme-color-2);
+    border-bottom: 2px solid var(--theme-color-std-bdr);
     flex-wrap: wrap;
 }
 
 .tab-link {
-    padding: 10px 20px;
+    padding: 12px 24px;
     cursor: pointer;
-    border: 1px solid var(--border-color);
-    border-bottom: none;
-    background-color: var(--tab-bg);
-    color: var(--text-primary);
-    transition: background-color 0.2s ease;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    background-color: transparent;
+    color: var(--theme-color-soft-text);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
 
 .tab-link:hover {
-    background-color: var(--bg-hover);
+    color: var(--theme-color-std-text);
+    background-color: var(--theme-color-component-hover);
 }
 
 .tab-link.active {
-    background-color: var(--tab-active-bg);
-    font-weight: bold;
+    color: var(--theme-color-primary);
+    border-bottom-color: var(--theme-color-primary);
+    font-weight: 600;
+    background-color: transparent;
 }
 
 .tab-content {
     display: none;
-    padding: 20px;
-    border: 1px solid var(--border-color);
+    padding: 24px;
+    border: 1px solid var(--theme-color-weak-bdr);
     border-top: none;
-    background-color: var(--bg-primary);
+    background-color: var(--theme-color-1);
 }
 
 .tab-content.active {
@@ -269,81 +445,97 @@ body {
 }
 
 /* ==========================================================================
-   Data Table
+   Data Table - Siemens iX Table Style
    ========================================================================== */
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 1em;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 14px;
-    box-shadow: 0 2px 8px var(--shadow-light);
-    background-color: var(--bg-secondary);
+    margin-top: 16px;
+    font-size: 13px;
+    background-color: var(--theme-color-component-1);
+    border: 1px solid var(--theme-color-weak-bdr);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 th, td {
-    padding: 6px 10px;
+    padding: 10px 12px;
     text-align: left;
-    line-height: 1.2;
-    color: var(--text-primary);
+    line-height: 1.4;
+    color: var(--theme-color-std-text);
+    border-bottom: 1px solid var(--theme-color-weak-bdr);
 }
 
 th {
-    background-color: var(--bg-table-header);
-    color: var(--text-primary);
+    background-color: var(--theme-color-2);
+    color: var(--theme-color-std-text);
     font-weight: 600;
-    border-bottom: 2px solid var(--border-color);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--theme-color-std-bdr);
 }
 
 tr:nth-child(even) {
-    background-color: var(--bg-table-alt);
+    background-color: var(--theme-color-1);
 }
 
 tr:hover {
-    background-color: var(--bg-hover);
+    background-color: var(--theme-color-component-hover);
 }
 
-/* Manager state colors */
+tr:last-child td {
+    border-bottom: none;
+}
+
+/* Manager state colors - Siemens iX Status Colors */
 td[data-state="0"] {
-    background-color: #f8d7da;
-    color: #721c24;
+    background-color: var(--theme-color-alarm-bg);
+    color: var(--theme-color-alarm-text);
 }
 
 td[data-state="1"] {
-    background-color: #fff3cd;
-    color: #856404;
+    background-color: var(--theme-color-warning-bg);
+    color: var(--theme-color-warning-text);
 }
 
 td[data-state="2"] {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: var(--theme-color-success-bg);
+    color: var(--theme-color-success-text);
 }
 
 /* ==========================================================================
-   Instance Tabs (Console)
+   Instance Tabs (Console) - Siemens iX Pill/Chip Style
    ========================================================================== */
 
 .instance-tab-button {
-    padding: 10px;
-    margin-right: 5px;
+    padding: 8px 16px;
+    margin-right: 8px;
+    margin-bottom: 8px;
     cursor: pointer;
-    background-color: #f1f1f1;
-    border: 1px solid #ccc;
+    background-color: var(--theme-color-component-1);
+    border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
+    color: var(--theme-color-std-text);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
 
 .instance-tab-button:hover {
-    background-color: #e1e1e1;
+    background-color: var(--theme-color-component-hover);
+    border-color: var(--theme-color-primary);
 }
 
 .instance-tab-button.active {
-    background-color: #01656e;
-    color: white;
+    background-color: var(--theme-color-primary);
+    color: var(--theme-color-primary-contrast);
+    border-color: var(--theme-color-primary);
 }
 
 /* ==========================================================================
-   Console Toolbar
+   Console Toolbar - Siemens iX Toolbar Style
    ========================================================================== */
 
 .console-toolbar {
@@ -351,62 +543,86 @@ td[data-state="2"] {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--theme-color-weak-bdr);
 }
 
 .toolbar-left,
 .toolbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
+/* Siemens iX Button Styles */
 .btn-toolbar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 8px 16px !important;
     width: auto !important;
     max-width: none !important;
     margin-bottom: 0 !important;
+    border: 1px solid var(--theme-color-std-bdr);
+    border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-toolbar:hover {
+    background-color: var(--theme-color-component-hover);
+    border-color: var(--theme-color-primary);
 }
 
 .btn-danger {
-    background-color: #dc3545 !important;
+    background-color: var(--theme-color-alarm) !important;
+    color: var(--theme-color-primary-contrast) !important;
+    border-color: var(--theme-color-alarm) !important;
 }
 
 .btn-danger:hover {
-    background-color: #c82333 !important;
+    background-color: #b8221a !important;
+    border-color: #b8221a !important;
 }
 
 /* ==========================================================================
-   Auto-Refresh Controls
+   Auto-Refresh Controls - Siemens iX Toggle Style
    ========================================================================== */
 
 .auto-refresh-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
+    gap: 10px;
+    padding: 8px 14px;
+    background-color: var(--theme-color-component-1);
+    border: 1px solid var(--theme-color-weak-bdr);
     border-radius: 4px;
 }
 
 .auto-refresh-label {
     display: flex !important;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 0 !important;
-    font-weight: normal !important;
+    font-weight: 500 !important;
+    font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
+    color: var(--theme-color-std-text);
 }
 
 .auto-refresh-label input[type="checkbox"] {
-    width: auto;
+    width: 16px;
+    height: 16px;
     margin: 0;
+    accent-color: var(--theme-color-primary);
 }
 
 .status-indicator {
@@ -414,55 +630,62 @@ td[data-state="2"] {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: #6c757d;
-    transition: background-color 0.3s ease;
+    background-color: var(--theme-color-soft-text);
+    transition: background-color 0.2s ease;
 }
 
 .status-indicator.active {
-    background-color: #28a745;
-    box-shadow: 0 0 4px #28a745;
+    background-color: var(--theme-color-success);
+    box-shadow: 0 0 4px var(--theme-color-success);
     animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
     0% {
-        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+        box-shadow: 0 0 0 0 rgba(26, 128, 56, 0.7);
     }
     70% {
-        box-shadow: 0 0 0 6px rgba(40, 167, 69, 0);
+        box-shadow: 0 0 0 6px rgba(26, 128, 56, 0);
     }
     100% {
-        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+        box-shadow: 0 0 0 0 rgba(26, 128, 56, 0);
     }
 }
 
 #refreshIntervalSelect {
-    padding: 4px 8px;
-    border: 1px solid #ced4da;
+    padding: 6px 10px;
+    border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
-    background-color: white;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    font-size: 13px;
     cursor: pointer;
 }
 
+#refreshIntervalSelect:hover {
+    border-color: var(--theme-color-primary);
+}
+
 #refreshIntervalSelect:disabled {
-    background-color: #e9ecef;
+    background-color: var(--theme-color-2);
     cursor: not-allowed;
     opacity: 0.6;
 }
 
 .last-refresh {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--theme-color-soft-text);
     white-space: nowrap;
 }
 
 #lastRefreshTime {
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
+    font-family: "Consolas", "Monaco", monospace;
+    font-weight: 600;
+    color: var(--theme-color-std-text);
 }
 
 /* ==========================================================================
-   Modals
+   Modals - Siemens iX Modal/Dialog Style
    ========================================================================== */
 
 .modal-overlay {
@@ -472,57 +695,87 @@ td[data-state="2"] {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.6);
     z-index: 1000;
+    backdrop-filter: blur(2px);
 }
 
 .modal-content {
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
+    background: var(--theme-color-component-1);
+    padding: 24px;
+    border-radius: 4px;
+    border: 1px solid var(--theme-color-weak-bdr);
     max-width: 400px;
     margin: 100px auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: var(--theme-shadow-3);
     text-align: center;
+    color: var(--theme-color-std-text);
 }
 
 .modal-content h3 {
     margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--theme-color-std-text);
+}
+
+.modal-content p {
+    color: var(--theme-color-soft-text);
+    line-height: 1.6;
 }
 
 .modal-content button {
     padding: 10px 20px;
-    margin: 5px;
+    margin: 6px;
     cursor: pointer;
     border-radius: 4px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--theme-color-std-bdr);
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.modal-content button:hover {
+    background-color: var(--theme-color-component-hover);
+    border-color: var(--theme-color-primary);
 }
 
 .modal-content button.primary {
-    background-color: #01656e;
-    color: white;
+    background-color: var(--theme-color-primary);
+    color: var(--theme-color-primary-contrast);
     border: none;
 }
 
 .modal-content button.primary:hover {
-    background-color: #005057;
+    background-color: var(--theme-color-primary-hover);
 }
 
 /* ==========================================================================
-   Warning Notice
+   Warning Notice - Siemens iX Message Bar Style
    ========================================================================== */
 
 .warning-notice {
     display: none;
-    border: 1px solid #b30000;
-    background-color: #ffe6e6;
-    padding: 10px;
-    margin-top: 10px;
+    border: 1px solid var(--theme-color-critical);
+    border-left: 4px solid var(--theme-color-critical);
+    background-color: var(--theme-color-critical-bg);
+    color: var(--theme-color-critical-text);
+    padding: 12px 16px;
+    margin-top: 12px;
     border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.warning-notice strong {
+    color: var(--theme-color-critical);
 }
 
 /* ==========================================================================
-   Server Modal (connection status)
+   Server Modal (connection status) - Siemens iX Style
    ========================================================================== */
 
 #serverModal {
@@ -533,21 +786,24 @@ td[data-state="2"] {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.4);
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
 }
 
 #serverModal > div {
-    background-color: #fff;
+    background-color: var(--theme-color-component-1);
     margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 300px;
+    padding: 24px;
+    border: 1px solid var(--theme-color-weak-bdr);
+    width: 320px;
     text-align: center;
-    border-radius: 8px;
+    border-radius: 4px;
+    box-shadow: var(--theme-shadow-3);
+    color: var(--theme-color-std-text);
 }
 
 /* ==========================================================================
-   Log Viewer
+   Log Viewer - Siemens iX Console Style
    ========================================================================== */
 
 .log-toolbar {
@@ -555,46 +811,64 @@ td[data-state="2"] {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--theme-color-weak-bdr);
 }
 
 .log-toolbar .toolbar-left,
 .log-toolbar .toolbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .log-toolbar label {
     display: inline-flex !important;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     margin-bottom: 0 !important;
-    font-weight: normal !important;
+    font-weight: 500 !important;
+    font-size: 13px;
+    color: var(--theme-color-std-text);
 }
 
 .log-toolbar select {
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
+    padding: 8px 12px;
+    border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
-    background-color: white;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
     min-width: 200px;
+    font-size: 13px;
+}
+
+.log-toolbar select:hover {
+    border-color: var(--theme-color-primary);
 }
 
 .log-toolbar input[type="text"] {
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
+    padding: 8px 12px;
+    border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
     width: 150px;
+    font-size: 13px;
+}
+
+.log-toolbar input[type="text"]:focus {
+    border-color: var(--theme-color-primary);
+    outline: none;
 }
 
 .log-toolbar input[type="checkbox"] {
-    width: auto;
+    width: 16px;
+    height: 16px;
     margin: 0;
+    accent-color: var(--theme-color-primary);
 }
 
 .log-container {
@@ -602,67 +876,68 @@ td[data-state="2"] {
     height: 500px;
     box-sizing: border-box;
     overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
-    padding: 10px;
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
+    font-size: 12px;
+    padding: 12px;
     white-space: pre-wrap;
-    background-color: #1e1e1e;
-    color: #d4d4d4;
+    background-color: #0d1117;
+    color: #c9d1d9;
     border-radius: 4px;
-    border: 1px solid #333;
+    border: 1px solid var(--theme-color-std-bdr);
 }
 
 .log-container span {
     display: block;
-    padding: 1px 0;
+    padding: 2px 0;
 }
 
-/* Log level colors */
+/* Log level colors - Industrial style */
 .log-container .log-default {
-    color: #d4d4d4;
+    color: #c9d1d9;
 }
 
 .log-container .log-warning {
-    color: #dcdcaa;
+    color: var(--theme-color-warning);
 }
 
 .log-container .log-error {
-    color: #f14c4c;
+    color: var(--theme-color-alarm);
 }
 
 .log-container .log-severe {
-    color: #c586c0;
+    color: #ff7b72;
     font-weight: bold;
 }
 
 .log-container .log-info {
-    color: #4ec9b0;
+    color: var(--theme-color-info);
 }
 
 .log-container .log-debug {
-    color: #9cdcfe;
+    color: #a5d6ff;
 }
 
 /* Frozen and paused states */
 .log-container.frozen {
-    background-color: #1a2a3a !important;
-    border-color: #4a9fd4 !important;
+    background-color: #0d1927 !important;
+    border-color: var(--theme-color-info) !important;
 }
 
 .log-container.paused {
-    background-color: #2a2a1a !important;
-    border-color: #d4a74a !important;
+    background-color: #1a1a0d !important;
+    border-color: var(--theme-color-warning) !important;
 }
 
 .log-footer {
-    margin-top: 15px;
+    margin-top: 16px;
     text-align: right;
     font-size: 12px;
 }
 
 .log-footer a {
-    color: #01656e;
+    color: var(--theme-color-primary);
     text-decoration: none;
+    font-weight: 500;
 }
 
 .log-footer a:hover {
@@ -670,168 +945,204 @@ td[data-state="2"] {
 }
 
 /* ==========================================================================
-   Deployment History
+   Deployment History - Siemens iX Style
    ========================================================================== */
 
 .history-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--theme-color-weak-bdr);
 }
 
 .history-toolbar .toolbar-left,
 .history-toolbar .toolbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 #historyCount {
-    font-size: 14px;
-    color: #666;
+    font-size: 13px;
+    color: var(--theme-color-soft-text);
+    font-weight: 500;
 }
 
 .history-container {
     max-height: 500px;
     overflow-y: auto;
-    border: 1px solid #ddd;
+    border: 1px solid var(--theme-color-weak-bdr);
     border-radius: 4px;
 }
 
 #historyTable {
     margin-top: 0;
+    border: none;
     box-shadow: none;
 }
 
 #historyTable thead th {
     position: sticky;
     top: 0;
-    background-color: #f4f6f8;
+    background-color: var(--theme-color-2);
     z-index: 1;
 }
 
 .history-empty {
     text-align: center;
-    color: #999;
+    color: var(--theme-color-soft-text);
     font-style: italic;
-    padding: 30px !important;
+    padding: 40px !important;
 }
 
-/* Status badges */
+/* Status badges - Siemens iX Chip Style */
 .status-badge {
     display: inline-block;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .status-badge.success {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: var(--theme-color-success-bg);
+    color: var(--theme-color-success-text);
+    border: 1px solid var(--theme-color-success);
 }
 
 .status-badge.failed {
-    background-color: #f8d7da;
-    color: #721c24;
+    background-color: var(--theme-color-alarm-bg);
+    color: var(--theme-color-alarm-text);
+    border: 1px solid var(--theme-color-alarm);
 }
 
 .status-badge.pending {
-    background-color: #fff3cd;
-    color: #856404;
+    background-color: var(--theme-color-warning-bg);
+    color: var(--theme-color-warning-text);
+    border: 1px solid var(--theme-color-warning);
 }
 
 /* File size formatting */
 .file-size {
-    font-family: 'Courier New', monospace;
+    font-family: "Consolas", "Monaco", monospace;
     white-space: nowrap;
+    font-size: 12px;
 }
 
 /* Hostname badge */
 .hostname-badge {
     display: inline-block;
-    padding: 2px 8px;
-    background-color: #e9ecef;
+    padding: 3px 10px;
+    background-color: var(--theme-color-2);
+    border: 1px solid var(--theme-color-weak-bdr);
     border-radius: 4px;
     font-size: 12px;
-    color: #495057;
+    color: var(--theme-color-std-text);
+    font-family: "Consolas", "Monaco", monospace;
 }
 
 /* History search and filter */
 #historySearch {
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
+    padding: 8px 12px;
+    border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
     width: 150px;
+    font-size: 13px;
+}
+
+#historySearch:focus {
+    border-color: var(--theme-color-primary);
+    outline: none;
 }
 
 #historyStatusFilter {
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
+    padding: 8px 12px;
+    border: 1px solid var(--theme-color-std-bdr);
     border-radius: 4px;
-    background-color: white;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    font-size: 13px;
+}
+
+#historyStatusFilter:hover {
+    border-color: var(--theme-color-primary);
 }
 
 .btn-secondary {
-    background-color: #6c757d !important;
+    background-color: var(--theme-color-component-2) !important;
+    color: var(--theme-color-std-text) !important;
+    border: 1px solid var(--theme-color-std-bdr) !important;
 }
 
 .btn-secondary:hover {
-    background-color: #5a6268 !important;
+    background-color: var(--theme-color-component-hover) !important;
+    border-color: var(--theme-color-primary) !important;
 }
 
 /* ==========================================================================
-   Toast Notifications
+   Toast Notifications - Siemens iX Message Toast Style
    ========================================================================== */
 
 .toast-container {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 24px;
+    right: 24px;
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .toast {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
-    padding: 14px 20px;
-    border-radius: 8px;
-    background-color: #333;
-    color: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    animation: slideIn 0.3s ease-out;
-    max-width: 350px;
+    padding: 16px 20px;
+    border-radius: 4px;
+    border-left: 4px solid;
+    background-color: var(--theme-color-component-1);
+    color: var(--theme-color-std-text);
+    box-shadow: var(--theme-shadow-3);
+    animation: slideIn 0.2s ease-out;
+    max-width: 380px;
 }
 
 .toast.success {
-    background-color: #28a745;
+    border-left-color: var(--theme-color-success);
+    background-color: var(--theme-color-success-bg);
 }
 
 .toast.error {
-    background-color: #dc3545;
+    border-left-color: var(--theme-color-alarm);
+    background-color: var(--theme-color-alarm-bg);
 }
 
 .toast.warning {
-    background-color: #ffc107;
-    color: #333;
+    border-left-color: var(--theme-color-warning);
+    background-color: var(--theme-color-warning-bg);
 }
 
 .toast.info {
-    background-color: #17a2b8;
+    border-left-color: var(--theme-color-info);
+    background-color: var(--theme-color-info-bg);
 }
 
 .toast-icon {
-    font-size: 20px;
+    font-size: 18px;
     flex-shrink: 0;
+    line-height: 1;
 }
+
+.toast.success .toast-icon { color: var(--theme-color-success); }
+.toast.error .toast-icon { color: var(--theme-color-alarm); }
+.toast.warning .toast-icon { color: var(--theme-color-warning); }
+.toast.info .toast-icon { color: var(--theme-color-info); }
 
 .toast-content {
     flex-grow: 1;
@@ -839,31 +1150,35 @@ td[data-state="2"] {
 
 .toast-title {
     font-weight: 600;
-    margin-bottom: 2px;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--theme-color-std-text);
 }
 
 .toast-message {
     font-size: 13px;
-    opacity: 0.9;
+    color: var(--theme-color-soft-text);
+    line-height: 1.4;
 }
 
 .toast-close {
     background: none;
     border: none;
-    color: inherit;
+    color: var(--theme-color-soft-text);
     font-size: 18px;
     cursor: pointer;
-    opacity: 0.7;
     padding: 0;
     margin-left: 8px;
+    line-height: 1;
+    transition: color 0.15s ease;
 }
 
 .toast-close:hover {
-    opacity: 1;
+    color: var(--theme-color-std-text);
 }
 
 .toast.hiding {
-    animation: slideOut 0.3s ease-in forwards;
+    animation: slideOut 0.2s ease-in forwards;
 }
 
 @keyframes slideIn {
@@ -889,7 +1204,7 @@ td[data-state="2"] {
 }
 
 /* ==========================================================================
-   ZIP Preview Modal
+   ZIP Preview Modal - Siemens iX Style
    ========================================================================== */
 
 .modal-large {
@@ -899,23 +1214,25 @@ td[data-state="2"] {
 
 .zip-preview-info {
     display: flex;
-    gap: 20px;
-    padding: 10px 15px;
-    background-color: #f8f9fa;
+    gap: 24px;
+    padding: 12px 16px;
+    background-color: var(--theme-color-2);
+    border: 1px solid var(--theme-color-weak-bdr);
     border-radius: 4px;
-    margin-bottom: 15px;
-    font-size: 14px;
+    margin-bottom: 16px;
+    font-size: 13px;
 }
 
 .zip-preview-info span {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
+    color: var(--theme-color-std-text);
 }
 
 .zip-preview-info span::before {
-    font-weight: bold;
-    color: #666;
+    font-weight: 600;
+    color: var(--theme-color-soft-text);
 }
 
 #zipFileName::before { content: "File: "; }
@@ -925,43 +1242,46 @@ td[data-state="2"] {
 .zip-preview-container {
     max-height: 300px;
     overflow-y: auto;
-    border: 1px solid #ddd;
+    border: 1px solid var(--theme-color-weak-bdr);
     border-radius: 4px;
-    margin-bottom: 15px;
+    margin-bottom: 16px;
 }
 
 #zipPreviewTable {
     margin: 0;
+    border: none;
     box-shadow: none;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 #zipPreviewTable th {
     position: sticky;
     top: 0;
-    background-color: #f4f6f8;
+    background-color: var(--theme-color-2);
     z-index: 1;
 }
 
 #zipPreviewTable td {
-    font-family: 'Courier New', monospace;
+    font-family: "Consolas", "Monaco", monospace;
     word-break: break-all;
 }
 
 .zip-file-warning {
-    color: #dc3545;
-    font-weight: bold;
+    color: var(--theme-color-alarm);
+    font-weight: 600;
 }
 
 .zip-file-ok {
-    color: #28a745;
+    color: var(--theme-color-success);
 }
 
 .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 15px;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-color-weak-bdr);
 }
 
 /* ==========================================================================
