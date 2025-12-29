@@ -1,4 +1,5 @@
 #uses "classes/projectdownload/ProjectDownloadEndpoints"
+#uses "classes/httplogviewer/LogViewerHttpEndpoints"
 #uses "classes/HttpServer"
 #uses "std"
 #uses "CtrlXml"
@@ -22,6 +23,7 @@ class MyHttpServer : HttpServer
   {
     HttpServer::start();
     ProjectDownloadHttpEndpoints::connectEndpoints(this.getHttpsPort());
+    LogViewerHttpEndpoints::connectEndpoints(this.getHttpsPort());
   }
 };
 

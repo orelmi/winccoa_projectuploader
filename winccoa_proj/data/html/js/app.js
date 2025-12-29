@@ -468,6 +468,218 @@ function checkServerAvailability() {
 }
 
 /* ==========================================================================
+   Log Viewer Functions
+   ========================================================================== */
+
+// Log viewer state
+let _logLastLineId = 0;
+let _logCurrentFile = null;
+let _logIsFrozen = false;
+let _logIsScrollPaused = false;
+let _logRefreshIntervalId = null;
+
+/**
+ * Refresh the list of available log files
+ */
+function refreshLogFiles() {
+    fetch('/logs/files')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('logFileSelect');
+            const currentValue = select.value;
+
+            // Clear existing options except the first one
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            // Add new options
+            const files = data.files || [];
+            files.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file.name;
+                option.textContent = `${file.name} (${file.size} KB)`;
+                select.appendChild(option);
+            });
+
+            // Restore selection if still available
+            if (currentValue) {
+                select.value = currentValue;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching log files:', error);
+        });
+}
+
+/**
+ * Handle log file selection change
+ */
+function selectLogFile() {
+    const select = document.getElementById('logFileSelect');
+    const fileName = select.value;
+
+    if (!fileName) {
+        stopLogRefresh();
+        document.getElementById('logContainer').textContent = 'Select a log file to view...';
+        return;
+    }
+
+    _logCurrentFile = fileName;
+    _logLastLineId = 0;
+    document.getElementById('logContainer').innerHTML = '';
+
+    // Start refreshing logs
+    loadLogLines();
+    startLogRefresh();
+}
+
+/**
+ * Start the log auto-refresh interval
+ */
+function startLogRefresh() {
+    stopLogRefresh();
+    _logRefreshIntervalId = setInterval(loadLogLines, 3000);
+}
+
+/**
+ * Stop the log auto-refresh interval
+ */
+function stopLogRefresh() {
+    if (_logRefreshIntervalId) {
+        clearInterval(_logRefreshIntervalId);
+        _logRefreshIntervalId = null;
+    }
+}
+
+/**
+ * Load new log lines from the server
+ */
+async function loadLogLines() {
+    if (_logIsFrozen || !_logCurrentFile) return;
+
+    try {
+        const response = await fetch(`/logs/read?file=${encodeURIComponent(_logCurrentFile)}&since=${_logLastLineId}&limit=1000`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) throw new Error('API Error');
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        const newLines = data.lines || [];
+        const newId = data.lastId || _logLastLineId;
+
+        _logLastLineId = newId;
+
+        if (newLines.length > 0) {
+            renderLogLines(newLines);
+        }
+
+        applyLogFilter();
+
+    } catch (error) {
+        console.error('Error loading log lines:', error);
+        const container = document.getElementById('logContainer');
+        const errorSpan = document.createElement('span');
+        errorSpan.className = 'log-error';
+        errorSpan.textContent = '[Error] ' + error.message;
+        container.appendChild(errorSpan);
+    }
+}
+
+/**
+ * Render log lines to the container
+ * @param {string[]} lines - Array of log lines
+ */
+function renderLogLines(lines) {
+    const container = document.getElementById('logContainer');
+
+    for (const line of lines) {
+        const span = document.createElement('span');
+        span.className = getLogLevelClass(line);
+        span.textContent = line;
+        container.appendChild(span);
+    }
+
+    if (!_logIsScrollPaused) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+/**
+ * Determine CSS class based on log level
+ * @param {string} line - Log line content
+ * @returns {string} CSS class name
+ */
+function getLogLevelClass(line) {
+    const upperLine = line.toUpperCase();
+    if (upperLine.includes('SEVERE')) return 'log-severe';
+    if (upperLine.includes('ERROR')) return 'log-error';
+    if (upperLine.includes('WARNING') || upperLine.includes('WARN')) return 'log-warning';
+    if (upperLine.includes('DEBUG')) return 'log-debug';
+    if (upperLine.includes('INFO')) return 'log-info';
+    return 'log-default';
+}
+
+/**
+ * Apply filter to visible log lines
+ */
+function applyLogFilter() {
+    const filterInput = document.getElementById('logFilterInput');
+    const filter = filterInput.value.toLowerCase();
+    const container = document.getElementById('logContainer');
+    const spans = container.querySelectorAll('span');
+
+    spans.forEach(span => {
+        const visible = filter === '' || span.textContent.toLowerCase().includes(filter);
+        span.style.display = visible ? 'block' : 'none';
+    });
+
+    if (!_logIsScrollPaused) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+/**
+ * Initialize log viewer event listeners
+ */
+function initLogViewer() {
+    const filterInput = document.getElementById('logFilterInput');
+    const pauseCheckbox = document.getElementById('logPauseScroll');
+    const freezeCheckbox = document.getElementById('logFreezeUpdate');
+    const container = document.getElementById('logContainer');
+
+    if (filterInput) {
+        filterInput.addEventListener('input', applyLogFilter);
+    }
+
+    if (pauseCheckbox) {
+        pauseCheckbox.addEventListener('change', function(e) {
+            _logIsScrollPaused = e.target.checked;
+            container.classList.toggle('paused', _logIsScrollPaused);
+        });
+    }
+
+    if (freezeCheckbox) {
+        freezeCheckbox.addEventListener('change', function(e) {
+            _logIsFrozen = e.target.checked;
+            container.classList.toggle('frozen', _logIsFrozen);
+        });
+    }
+
+    // Load initial file list
+    refreshLogFiles();
+}
+
+/* ==========================================================================
    Initialization
    ========================================================================== */
 
@@ -478,6 +690,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     toggleNotice();
     refreshStatus();
     updateAutoRefreshUI();
+    initLogViewer();
     // Fetch initial CSRF token
     await fetchCsrfToken();
 });

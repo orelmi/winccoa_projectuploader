@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>WinCC OA LogViewer</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    #controls {
+      padding: 10px;
+      background-color: #eee;
+      font-family: sans-serif;
+    }
+
+    #logContainer {
+      width: 100%;
+      height: 80%;
+      box-sizing: border-box;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 14px;
+      padding: 10px;
+      white-space: pre-wrap;
+      background-color: #f2f2fa;
+    }
+
+    .default {
+      color: black;
+    }
+
+    .warning {
+      color: orange;
+    }
+
+    .error {
+      color: red;
+    }
+
+    .severe {
+      color: purple;
+    }
+
+    .frozen {
+      background-color: #d0ecff !important;
+    }
+
+    .paused {
+      background-color: #fff8c4 !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="controls">
+    <label><a href="/logs">Logs</a></label>
+
+    <label><input type="text" id="filterInput" placeholder="Search ..."></label>
+
+    <label><input type="checkbox" id="pauseScroll"> Pause scroll </label>
+    <label style="margin-left: 20px;"><input type="checkbox" id="freezeUpdate"> Freeze </label>
+  </div>
+
+
+  <br />
+  <div id="logContainer">Loading...</div>
+  <script>
+    let lastLineId = 0;
+
+    let allLines = [];
+    let isFrozen = false;
+    let isScrollPaused = false;
+
+
+    const logContainer = document.getElementById('logContainer');
+    const freezeCheckbox = document.getElementById('freezeUpdate');
+    const scrollCheckbox = document.getElementById('pauseScroll');
+    const filterInput = document.getElementById('filterInput');
+
+
+    scrollCheckbox.addEventListener('change', e => {
+      isScrollPaused = e.target.checked;
+      logContainer.classList.toggle('paused', isScrollPaused);
+    });
+
+    freezeCheckbox.addEventListener('change', e => {
+      isFrozen = e.target.checked;
+      logContainer.classList.toggle('frozen', isFrozen);
+    });
+
+
+    filterInput.addEventListener('input', () => {
+
+      const filter = filterInput.value.toLowerCase();
+      const lines = logContainer.querySelectorAll('span');
+      lines.forEach(span => {
+        const visible = filter === '' || span.textContent.toLowerCase().includes(filter);
+        span.style.display = visible ? 'block' : 'none';
+      });
+
+      if (!isScrollPaused) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+
+    });
+
+    function renderLog(allLines) {
+
+
+      for (const line of allLines) {
+        const span = document.createElement('span');
+        span.className = getLogLevelClass(line);
+        span.textContent = line;
+        logContainer.appendChild(span);
+      }
+
+      if (!isScrollPaused) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    }
+
+
+
+    function getLogLevelClass(line) {
+      if (line.includes('SEVERE')) return 'severe';
+      if (line.includes('ERROR')) return 'error';
+      if (line.includes('WARNING')) return 'warning';
+      return 'default';
+    }
+
+    async function loadNewLines() {
+      if (isFrozen) return;
+      try {
+        const response = await fetch(`/logs/read?file=***FILE***&since=${lastLineId}&limit=1000`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('API Error');
+
+        const data = await response.json();
+        const newLines = data.lines || [];
+        const newId = data.lastId || lastLineId;
+
+        if (lastLineId == 0) {
+          logContainer.innerHTML = '';
+        }
+
+        lastLineId = newId;
+        if (newLines.length > 0) {
+          renderLog(newLines);
+        }
+
+        filterInput.dispatchEvent(new Event('input'));
+
+      } catch (error) {
+
+        const errorLine = '[Error] ' + error.message;
+        allLines.push(errorLine);
+        renderLog(allLines);
+
+
+      }
+    }
+
+    loadNewLines();
+    setInterval(loadNewLines, 3000);
+  </script>
+</body>
+
+</html>

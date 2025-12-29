@@ -123,9 +123,32 @@
         <!-- Log Viewer Tab -->
         <div class="tab-content" id="Logs">
             <div class="form-wrapper">
-                <div class="form-box">
+                <div class="form-box" style="max-width: 95% !important;">
                     <h2>Log Viewer</h2>
-                    <p>Coming soon...</p>
+
+                    <!-- Log Viewer Toolbar -->
+                    <div class="log-toolbar">
+                        <div class="toolbar-left">
+                            <label for="logFileSelect">File:</label>
+                            <select id="logFileSelect" onchange="selectLogFile()">
+                                <option value="">-- Select a log file --</option>
+                            </select>
+                            <input type="button" onclick="refreshLogFiles()" value="Refresh List" class="btn-toolbar">
+                        </div>
+                        <div class="toolbar-right">
+                            <label><input type="text" id="logFilterInput" placeholder="Search..."></label>
+                            <label><input type="checkbox" id="logPauseScroll"> Pause scroll</label>
+                            <label><input type="checkbox" id="logFreezeUpdate"> Freeze</label>
+                        </div>
+                    </div>
+
+                    <!-- Log Container -->
+                    <div id="logContainer" class="log-container">Select a log file to view...</div>
+
+                    <!-- Link to standalone viewer -->
+                    <div class="log-footer">
+                        <a href="/logs" target="_blank">Open standalone log viewer</a>
+                    </div>
                 </div>
             </div>
         </div>
