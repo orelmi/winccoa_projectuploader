@@ -38,7 +38,11 @@ winccoa_projectuploader/
     │       └── pmondeploy.example.txt  # Example pmon deploy commands
     ├── data/
     │   └── html/
-    │       └── proj.html               # Main web interface (HTML/CSS/JS)
+    │       ├── proj.html               # Main web interface (HTML structure)
+    │       ├── css/
+    │       │   └── style.css           # Stylesheet (layout, colors, components)
+    │       └── js/
+    │           └── app.js              # Application logic (tabs, forms, API calls)
     ├── dplist/
     │   └── update_YYYYMMDD/           # Datapoint lists for import
     └── scripts/
@@ -61,6 +65,10 @@ winccoa_projectuploader/
 - Pure HTML/CSS/JavaScript (no frameworks)
 - Single-page application with tab-based navigation
 - Uses Fetch API for async HTTP requests
+- Separated concerns:
+  - `proj.html` - Structure and markup only
+  - `css/style.css` - All styles (organized by component)
+  - `js/app.js` - Application logic with JSDoc comments
 
 ## Architecture
 
