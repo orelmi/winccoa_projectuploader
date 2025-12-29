@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WinCC Open Architecture - Project manager</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="js/app.js" defer></script>
@@ -36,9 +37,14 @@
             </g>
         </svg>
         <h1>WinCC Open Architecture – Project manager</h1>
+        <!-- Dark Mode Toggle -->
+        <button id="darkModeToggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
+            <span class="icon-sun">&#9788;</span>
+            <span class="icon-moon">&#9790;</span>
+        </button>
     </div>
 
-    <div>
+    <div class="main-container">
         <!-- Tab Navigation -->
         <ul class="tab-menu">
             <li class="tab-link active" onclick="openTab(event, 'Download')">Download</li>
