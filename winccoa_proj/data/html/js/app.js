@@ -16,6 +16,10 @@ let _autoRefreshIntervalId = null;
 let _autoRefreshInterval = 5000; // Default: 5 seconds
 let _lastRefreshTime = null;
 
+// CSRF token state
+let _csrfToken = null;
+let _csrfTokenExpiry = null;
+
 /* ==========================================================================
    Tab Navigation
    ========================================================================== */
@@ -89,6 +93,16 @@ async function downloadFile(event) {
     const form = document.getElementById("downloadForm");
     const formData = new FormData(form);
 
+    // Get a valid CSRF token
+    const csrfToken = await getCsrfToken();
+    if (!csrfToken) {
+        alert("Security error: Could not obtain CSRF token. Please refresh the page.");
+        return;
+    }
+
+    // Add CSRF token to form data
+    formData.set('csrfToken', csrfToken);
+
     try {
         const response = await fetch("/project/download", {
             method: "POST",
@@ -98,6 +112,11 @@ async function downloadFile(event) {
         if (response.ok) {
             const result = await response.text();
             alert("Download successful: " + result);
+            // Refresh CSRF token after successful submission
+            await refreshCsrfToken();
+        } else if (response.status === 403) {
+            alert("Security error: Invalid or expired CSRF token. Please try again.");
+            await refreshCsrfToken();
         } else {
             alert("Download failed: " + response.statusText);
         }
@@ -134,15 +153,33 @@ function clearInstanceTabs() {
  * Send restart command to all project instances
  */
 async function restartProject() {
+    // Get a valid CSRF token
+    const csrfToken = await getCsrfToken();
+    if (!csrfToken) {
+        alert("Security error: Could not obtain CSRF token. Please refresh the page.");
+        return;
+    }
+
     try {
         const response = await fetch("/project/restart", {
             method: "POST",
-            body: JSON.stringify({ "restart": true })
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "restart": true,
+                "csrfToken": csrfToken
+            })
         });
 
         if (response.ok) {
             const result = await response.text();
             alert("Restart command acknowledge: " + result);
+            // Refresh CSRF token after successful submission
+            await refreshCsrfToken();
+        } else if (response.status === 403) {
+            alert("Security error: Invalid or expired CSRF token. Please try again.");
+            await refreshCsrfToken();
         } else {
             alert("Restart failed: " + response.statusText);
         }
@@ -344,6 +381,66 @@ function updateAutoRefreshUI() {
 }
 
 /* ==========================================================================
+   CSRF Token Management
+   ========================================================================== */
+
+/**
+ * Fetch a new CSRF token from the server
+ * @returns {Promise<string>} The CSRF token
+ */
+async function fetchCsrfToken() {
+    try {
+        const response = await fetch('/project/csrf-token');
+        if (response.ok) {
+            const data = await response.json();
+            _csrfToken = data.csrfToken;
+            _csrfTokenExpiry = Date.now() + (data.expiresIn * 1000);
+            updateCsrfTokenDisplay();
+            console.log('CSRF token fetched successfully');
+            return _csrfToken;
+        } else {
+            console.error('Failed to fetch CSRF token:', response.statusText);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error fetching CSRF token:', error);
+        return null;
+    }
+}
+
+/**
+ * Get a valid CSRF token, fetching a new one if needed
+ * @returns {Promise<string>} The CSRF token
+ */
+async function getCsrfToken() {
+    // If token is missing or expired (with 60s buffer), fetch a new one
+    if (!_csrfToken || !_csrfTokenExpiry || Date.now() > (_csrfTokenExpiry - 60000)) {
+        return await fetchCsrfToken();
+    }
+    return _csrfToken;
+}
+
+/**
+ * Update the hidden CSRF token field in forms
+ */
+function updateCsrfTokenDisplay() {
+    const csrfInputs = document.querySelectorAll('input[name="csrfToken"]');
+    csrfInputs.forEach(input => {
+        input.value = _csrfToken || '';
+    });
+}
+
+/**
+ * Consume the current token and fetch a new one
+ * Called after successful form submission
+ */
+async function refreshCsrfToken() {
+    _csrfToken = null;
+    _csrfTokenExpiry = null;
+    await fetchCsrfToken();
+}
+
+/* ==========================================================================
    Server Availability Check
    ========================================================================== */
 
@@ -377,10 +474,12 @@ function checkServerAvailability() {
 /**
  * Initialize application on DOM ready
  */
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", async function() {
     toggleNotice();
     refreshStatus();
     updateAutoRefreshUI();
+    // Fetch initial CSRF token
+    await fetchCsrfToken();
 });
 
 /**

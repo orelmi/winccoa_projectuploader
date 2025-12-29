@@ -52,6 +52,9 @@
                 <div class="form-box">
                     <h2>Download Your Project</h2>
                     <form id="downloadForm" onsubmit="handleDownload(event)" enctype="multipart/form-data">
+                        <!-- CSRF Token (hidden, populated by JavaScript) -->
+                        <input type="hidden" name="csrfToken" id="csrfToken" value="">
+
                         <label for="dateiupload">Select ZIP file:</label>
                         <input type="file" name="dateiupload" accept=".zip" required>
 
