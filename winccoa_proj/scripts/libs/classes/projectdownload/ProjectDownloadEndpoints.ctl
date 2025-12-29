@@ -49,6 +49,7 @@ class ProjectDownloadHttpEndpoints
     httpConnect(handleRequestRestart, URL_BASE + "/restart");
     httpConnect(handleRequestPmon, URL_BASE + "/pmon");
     httpConnect(handleRequestCsrfToken, URL_BASE + "/csrf-token");
+    httpConnect(handleRequestHistory, URL_BASE + "/history");
   }
 
   static void handleRequestRestart(string content, string user, string ip, dyn_string headernames, dyn_string headervalues, int connIdx)
@@ -145,14 +146,24 @@ class ProjectDownloadHttpEndpoints
         return;
       }
 
-  	  file f = fopen(path + "/" + fNames[1], "rb");
+      string zipFilePath = path + "/" + fNames[1];
+  	  file f = fopen(zipFilePath, "rb");
   	  blob data;
   	  fread(f, data);
   	  fclose(f);
 
+      // Get file size for history logging
+      long fileSize = getFileSize(zipFilePath);
+
       dyn_string dps = dpNames("*", DPT_PROJDOWN);
       for (int i = 1; i <= dynlen(dps); i++)
       {
+        // Store file metadata for history logging
+        dpSet(dps[i] + ".lastFileName", fNames[1],
+              dps[i] + ".lastFileSize", fileSize,
+              dps[i] + ".lastUser", user);
+
+        // Trigger deployment
   	    dpSet(dps[i] + ".filedata", data,
               dps[i] + ".command", true,
               dps[i] + ".restartproj", restartProject,
@@ -188,6 +199,51 @@ class ProjectDownloadHttpEndpoints
       dynAppend(res["instances"], obj);
     }
     return jsonEncode(res);
+  }
+
+  /**
+   * Handle request for deployment history
+   * @return JSON with deployment history from all instances
+   */
+  static string handleRequestHistory()
+  {
+    dyn_string dps = dpNames("*", DPT_PROJDOWN);
+    dyn_mapping allHistory;
+
+    for (int i = 1; i <= dynlen(dps); i++)
+    {
+      string historyJson;
+      dpGet(dps[i] + ".history", historyJson);
+
+      if (historyJson != "")
+      {
+        dyn_mapping instanceHistory = jsonDecode(historyJson);
+        // Merge into allHistory (interleave by timestamp)
+        for (int j = 1; j <= dynlen(instanceHistory); j++)
+        {
+          dynAppend(allHistory, instanceHistory[j]);
+        }
+      }
+    }
+
+    // Sort by timestamp (newest first)
+    for (int i = 1; i <= dynlen(allHistory) - 1; i++)
+    {
+      for (int j = i + 1; j <= dynlen(allHistory); j++)
+      {
+        if (allHistory[j]["timestamp"] > allHistory[i]["timestamp"])
+        {
+          mapping temp = allHistory[i];
+          allHistory[i] = allHistory[j];
+          allHistory[j] = temp;
+        }
+      }
+    }
+
+    mapping response;
+    response["history"] = allHistory;
+    response["totalCount"] = dynlen(allHistory);
+    return jsonEncode(response);
   }
 
 

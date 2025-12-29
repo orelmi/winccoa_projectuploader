@@ -680,6 +680,96 @@ function initLogViewer() {
 }
 
 /* ==========================================================================
+   Deployment History Functions
+   ========================================================================== */
+
+/**
+ * Refresh deployment history from server
+ */
+function refreshHistory() {
+    fetch('/project/history')
+        .then(response => response.json())
+        .then(data => {
+            renderHistory(data.history || []);
+            updateHistoryCount(data.totalCount || 0);
+        })
+        .catch(error => {
+            console.error('Error fetching history:', error);
+            document.getElementById('historyTableBody').innerHTML =
+                '<tr><td colspan="6" class="history-empty">Error loading history</td></tr>';
+        });
+}
+
+/**
+ * Update the history count display
+ * @param {number} count - Number of deployments
+ */
+function updateHistoryCount(count) {
+    const countElement = document.getElementById('historyCount');
+    if (countElement) {
+        countElement.textContent = count + ' deployment' + (count !== 1 ? 's' : '');
+    }
+}
+
+/**
+ * Render history entries to the table
+ * @param {Array} history - Array of history entries
+ */
+function renderHistory(history) {
+    const tbody = document.getElementById('historyTableBody');
+
+    if (!history || history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="history-empty">No deployment history available</td></tr>';
+        return;
+    }
+
+    let html = '';
+    history.forEach(entry => {
+        const statusClass = entry.status === 0 ? 'success' : 'failed';
+        const statusText = entry.status === 0 ? 'Success' : 'Failed';
+        const fileSize = formatFileSize(entry.fileSize || 0);
+
+        html += `<tr>
+            <td>${escapeHtml(entry.timestamp || '-')}</td>
+            <td>${escapeHtml(entry.fileName || '-')}</td>
+            <td class="file-size">${fileSize}</td>
+            <td>${escapeHtml(entry.user || 'unknown')}</td>
+            <td><span class="hostname-badge">${escapeHtml(entry.hostname || '-')}</span></td>
+            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+/**
+ * Format file size to human readable format
+ * @param {number} bytes - Size in bytes
+ * @returns {string} Formatted size
+ */
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const k = 1024;
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
+}
+
+/**
+ * Escape HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/* ==========================================================================
    Initialization
    ========================================================================== */
 
@@ -689,6 +779,7 @@ function initLogViewer() {
 document.addEventListener("DOMContentLoaded", async function() {
     toggleNotice();
     refreshStatus();
+    refreshHistory();
     updateAutoRefreshUI();
     initLogViewer();
     // Fetch initial CSRF token

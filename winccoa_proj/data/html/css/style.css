@@ -526,3 +526,95 @@ td[data-state="2"] {
 .log-footer a:hover {
     text-decoration: underline;
 }
+
+/* ==========================================================================
+   Deployment History
+   ========================================================================== */
+
+.history-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.history-toolbar .toolbar-left,
+.history-toolbar .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#historyCount {
+    font-size: 14px;
+    color: #666;
+}
+
+.history-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#historyTable {
+    margin-top: 0;
+    box-shadow: none;
+}
+
+#historyTable thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f4f6f8;
+    z-index: 1;
+}
+
+.history-empty {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    padding: 30px !important;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-badge.failed {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge.pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* File size formatting */
+.file-size {
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+}
+
+/* Hostname badge */
+.hostname-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #495057;
+}

@@ -92,8 +92,34 @@ cbData(string dp1, bool command, string dp2, blob filedata, string dp3, bool res
   }
 	if (command)
 	{
+    // Get file metadata stored by HTTP handler
+    string fileName, user;
+    int fileSize;
+    dpGet(DP_PROJDOWN + ".lastFileName", fileName,
+          DP_PROJDOWN + ".lastFileSize", fileSize,
+          DP_PROJDOWN + ".lastUser", user);
+
     string path;
 		int rc = unzipData(filedata);
+
+    // Determine status message
+    string statusMessage = "";
+    if (rc == 0)
+    {
+      statusMessage = "Deployment successful";
+    }
+    else if (rc == -100)
+    {
+      statusMessage = "Security validation failed";
+    }
+    else
+    {
+      statusMessage = "Extraction error: " + rc;
+    }
+
+    // Log the deployment
+    logDeployment(fileName, fileSize, user, rc, statusMessage);
+
 		dpSet(
         DP_PROJDOWN + ".command", false,
         DP_PROJDOWN + ".filedata", "",
@@ -177,18 +203,79 @@ initDpType(bool create)
 	xxdepes[4] = makeDynString ("","command","","");
 	xxdepes[5] = makeDynString ("","restartproj","","");
   xxdepes[6] = makeDynString ("","pmon","","");
+  xxdepes[7] = makeDynString ("","history","","");
+  xxdepes[8] = makeDynString ("","lastFileName","","");
+  xxdepes[9] = makeDynString ("","lastFileSize","","");
+  xxdepes[10] = makeDynString ("","lastUser","","");
 	xxdepei[1] = makeDynInt (DPEL_STRUCT);
 	xxdepei[2] = makeDynInt (0,DPEL_BLOB);
 	xxdepei[3] = makeDynInt (0,DPEL_INT);
 	xxdepei[4] = makeDynInt (0,DPEL_BOOL);
 	xxdepei[5] = makeDynInt (0,DPEL_BOOL);
 	xxdepei[6] = makeDynInt (0,DPEL_STRING);
+  xxdepei[7] = makeDynInt (0,DPEL_STRING);
+  xxdepei[8] = makeDynInt (0,DPEL_STRING);
+  xxdepei[9] = makeDynInt (0,DPEL_INT);
+  xxdepei[10] = makeDynInt (0,DPEL_STRING);
   if (create)
   {
   	dpTypeCreate(xxdepes,xxdepei);
   } else {
     dpTypeChange(xxdepes,xxdepei);
   }
+}
+
+/* ==========================================================================
+   Deployment History Functions
+   ========================================================================== */
+
+// Maximum number of history entries to keep
+const int MAX_HISTORY_ENTRIES = 100;
+
+/**
+ * Log a deployment event to history
+ * @param fileName Name of the uploaded file
+ * @param fileSize Size of the file in bytes
+ * @param user Username who performed the upload
+ * @param status Deployment status (0=success, negative=error)
+ * @param statusMessage Optional status message
+ */
+void logDeployment(string fileName, long fileSize, string user, int status, string statusMessage = "")
+{
+  // Get current history
+  string historyJson;
+  dpGet(DP_PROJDOWN + ".history", historyJson);
+
+  dyn_mapping history;
+  if (historyJson != "")
+  {
+    history = jsonDecode(historyJson);
+  }
+
+  // Create new entry
+  mapping entry;
+  entry["timestamp"] = formatTime("%Y-%m-%d %H:%M:%S", getCurrentTime());
+  entry["fileName"] = fileName;
+  entry["fileSize"] = fileSize;
+  entry["user"] = (user != "") ? user : "unknown";
+  entry["status"] = status;
+  entry["statusText"] = (status == 0) ? "Success" : "Failed";
+  entry["statusMessage"] = statusMessage;
+  entry["hostname"] = getHostname();
+
+  // Insert at beginning (newest first)
+  dynInsertAt(history, entry, 1);
+
+  // Trim to max entries
+  while (dynlen(history) > MAX_HISTORY_ENTRIES)
+  {
+    dynRemove(history, dynlen(history));
+  }
+
+  // Save history
+  dpSet(DP_PROJDOWN + ".history", jsonEncode(history));
+
+  DebugTN("Deployment logged:", fileName, "Status:", status);
 }
 
 /* ==========================================================================

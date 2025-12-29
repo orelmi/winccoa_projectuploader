@@ -42,6 +42,7 @@
         <!-- Tab Navigation -->
         <ul class="tab-menu">
             <li class="tab-link active" onclick="openTab(event, 'Download')">Download</li>
+            <li class="tab-link" onclick="openTab(event, 'History')">History</li>
             <li class="tab-link" onclick="openTab(event, 'Status')">Console</li>
             <li class="tab-link" onclick="openTab(event, 'Logs')">Log Viewer</li>
         </ul>
@@ -78,6 +79,46 @@
                             <button class="primary" onclick="confirmDownload(true)">Yes, continue</button>
                             <button onclick="confirmDownload(false)">Cancel</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div class="tab-content" id="History">
+            <div class="form-wrapper">
+                <div class="form-box" style="max-width: 95% !important;">
+                    <h2>Deployment History</h2>
+
+                    <!-- History Toolbar -->
+                    <div class="history-toolbar">
+                        <div class="toolbar-left">
+                            <input type="button" onclick="refreshHistory()" value="Refresh" class="btn-toolbar">
+                        </div>
+                        <div class="toolbar-right">
+                            <span id="historyCount">0 deployments</span>
+                        </div>
+                    </div>
+
+                    <!-- History Table -->
+                    <div class="history-container">
+                        <table id="historyTable">
+                            <thead>
+                                <tr>
+                                    <th>Date/Time</th>
+                                    <th>File Name</th>
+                                    <th>Size</th>
+                                    <th>User</th>
+                                    <th>Host</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <tr>
+                                    <td colspan="6" class="history-empty">No deployment history available</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
