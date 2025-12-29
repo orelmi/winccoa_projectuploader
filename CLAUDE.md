@@ -13,8 +13,9 @@ This is a **WinCC OA Project Manager** - a lightweight HTTP-based web interface 
 ## Key Features
 
 - **Download Tab**: Upload ZIP files to deploy project updates remotely
-- **Console Tab**: View WinCC OA manager status, restart project
-- **Log Viewer Tab**: Coming soon (planned integration from winccoa_logviewer)
+- **History Tab**: View deployment history with search and filtering
+- **Console Tab**: View WinCC OA manager status, control individual managers
+- **Log Viewer Tab**: Real-time log file streaming with search and filtering
 
 ## Repository Structure
 
@@ -92,12 +93,74 @@ winccoa_projectuploader/
 
 ### HTTP Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/project` | GET | Main web interface |
-| `/project/download` | POST | Upload ZIP file for deployment |
-| `/project/restart` | POST | Restart all managers |
-| `/project/pmon` | GET | Get pmon status as JSON |
+#### ProjectDownloadEndpoints (`/project`)
+
+| Endpoint | Method | Content-Type | Description |
+|----------|--------|--------------|-------------|
+| `/project` | GET | text/html | Main web interface (proj.html) |
+| `/project/download` | POST | multipart/form-data | Upload ZIP file for deployment |
+| `/project/restart` | POST | application/json | Restart managers (requires CSRF token) |
+| `/project/pmon` | GET | application/json | Get pmon status for all instances |
+| `/project/csrftoken` | GET | application/json | Get new CSRF token for secure requests |
+| `/project/history` | GET | application/json | Get deployment history |
+| `/project/manager` | POST | application/json | Control individual manager (start/stop/restart) |
+| `/project/css/style.css` | GET | text/css | Stylesheet |
+| `/project/js/app.js` | GET | application/javascript | Frontend JavaScript |
+| `/project/ws` | WebSocket | - | Real-time updates (pmon, logs, deployment) |
+
+#### LogViewerEndpoints (`/logs`) - Fallback HTTP
+
+| Endpoint | Method | Content-Type | Description |
+|----------|--------|--------------|-------------|
+| `/logs` | GET | text/html | HTML page listing all log files |
+| `/logs/files` | GET | application/json | JSON list of available log files |
+| `/logs/read` | GET | application/json | Read log file content |
+| `/logs/logViewer.html` | GET | text/html | Standalone log viewer page |
+
+**Query parameters for `/logs/read`:**
+- `file` (required): Log file name
+- `since` (optional): Line ID to start from (default: 1)
+- `limit` (optional): Max number of lines to return (default: unlimited)
+- `raw` (optional): Return raw file content instead of JSON
+
+### WebSocket Messages
+
+The WebSocket endpoint (`/project/ws`) supports bidirectional communication:
+
+#### Client → Server Messages
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `heartbeat` | Keep connection alive | - |
+| `subscribe` | Subscribe to pmon updates | - |
+| `getPmon` | Request current pmon data | - |
+| `getLogFiles` | Request list of log files | - |
+| `subscribeLog` | Subscribe to log file updates | `file`: filename, `startPos`: byte position |
+| `unsubscribeLog` | Unsubscribe from log updates | - |
+
+#### Server → Client Messages
+
+| Type | Description | Data |
+|------|-------------|------|
+| `pmon` | Manager status update | `instances[]`, `timestamp` |
+| `logContent` | Initial log file content | `file`, `lines[]`, `lastPos`, `timestamp` |
+| `log` | New log lines (incremental) | `file`, `lines[]`, `lastPos`, `timestamp` |
+| `logFiles` | List of available log files | `files[]`, `timestamp` |
+| `deployment` | Deployment status update | `status`, `details`, `timestamp` |
+| `heartbeat` | Heartbeat response | `timestamp` |
+| `notification` | Toast notification | `level`, `title`, `message` |
+| `error` | Error message | `message` |
+
+**Compressed messages:** Log content messages (`logContent`, `log`) are gzip-compressed and sent as:
+```json
+{
+  "compressed": true,
+  "encoding": "gzip",
+  "originalSize": 12345,
+  "compressedSize": 2345,
+  "data": "<base64-encoded-gzip-data>"
+}
+```
 
 ### Configuration
 
@@ -106,6 +169,32 @@ Enable the interface in WinCC OA config file:
 [httpProjectDownload]
 enabled = true
 ```
+
+## Debugging
+
+### CTL Debug Flags
+
+Debug output is controlled by `DebugFTN()` with numeric flags:
+
+```ctl
+const int DEBUG_WEBSOCKET = 62;  // WebSocket and log viewer traces
+```
+
+Enable in WinCC OA console: `-dbg 62`
+
+### JavaScript Debug Flags
+
+Debug logging is controlled by global variables (toggle in browser console):
+
+```javascript
+DEBUG_WEBSOCKET = true;   // WebSocket connection and message traces
+DEBUG_LOGVIEWER = true;   // Log viewer operations
+```
+
+Helper functions:
+- `wsLog(...)` - WebSocket debug (only when `DEBUG_WEBSOCKET = true`)
+- `wsError(...)` - WebSocket errors (always shown)
+- `logViewerLog(...)` - Log viewer debug (only when `DEBUG_LOGVIEWER = true`)
 
 ## Key Conventions
 
