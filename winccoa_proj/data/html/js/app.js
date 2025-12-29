@@ -20,6 +20,689 @@ let _lastRefreshTime = null;
 let _csrfToken = null;
 let _csrfTokenExpiry = null;
 
+// WebSocket state
+let _websocket = null;
+let _wsReconnectAttempts = 0;
+let _wsMaxReconnectAttempts = 5;
+let _wsReconnectDelay = 2000;
+let _wsHeartbeatInterval = null;
+
+// Upload state
+let _uploadInProgress = false;
+let _uploadAbortController = null;
+
+// Chunked upload configuration
+const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+const MAX_CONCURRENT_CHUNKS = 3;
+
+/* ==========================================================================
+   Service Worker Registration
+   ========================================================================== */
+
+/**
+ * Register Service Worker for offline support
+ */
+async function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.register('/project/sw.js', {
+                scope: '/project/'
+            });
+
+            console.log('[App] Service Worker registered:', registration.scope);
+
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                console.log('[App] Service Worker update found');
+
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        showToast('info', 'Update Available', 'New version available. Refresh to update.');
+                    }
+                });
+            });
+
+            // Request notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                // Don't auto-request, wait for user action
+            }
+
+            return registration;
+        } catch (error) {
+            console.error('[App] Service Worker registration failed:', error);
+        }
+    }
+    return null;
+}
+
+/**
+ * Request notification permission
+ */
+async function requestNotificationPermission() {
+    if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            showToast('success', 'Notifications Enabled', 'You will receive deployment notifications');
+        }
+        return permission === 'granted';
+    }
+    return false;
+}
+
+/* ==========================================================================
+   WebSocket Connection
+   ========================================================================== */
+
+/**
+ * Initialize WebSocket connection for real-time updates
+ */
+function initWebSocket() {
+    if (_websocket && _websocket.readyState === WebSocket.OPEN) {
+        console.log('[WS] Already connected');
+        return;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/project/ws`;
+
+    console.log('[WS] Connecting to:', wsUrl);
+    updateWebSocketStatus('connecting');
+
+    try {
+        _websocket = new WebSocket(wsUrl);
+
+        _websocket.onopen = handleWebSocketOpen;
+        _websocket.onmessage = handleWebSocketMessage;
+        _websocket.onerror = handleWebSocketError;
+        _websocket.onclose = handleWebSocketClose;
+    } catch (error) {
+        console.error('[WS] Connection error:', error);
+        scheduleWebSocketReconnect();
+    }
+}
+
+/**
+ * Handle WebSocket open event
+ */
+function handleWebSocketOpen(event) {
+    console.log('[WS] Connected');
+    _wsReconnectAttempts = 0;
+
+    // Update UI to show connected status
+    updateWebSocketStatus('connected');
+
+    // Start heartbeat
+    startWebSocketHeartbeat();
+
+    // Subscribe to updates
+    sendWebSocketMessage({
+        type: 'subscribe',
+        channels: ['pmon', 'deployment', 'logs']
+    });
+
+    showToast('success', 'Real-time Connected', 'Live updates enabled');
+}
+
+/**
+ * Handle incoming WebSocket messages
+ */
+function handleWebSocketMessage(event) {
+    try {
+        const data = JSON.parse(event.data);
+        console.log('[WS] Message received:', data.type);
+
+        switch (data.type) {
+            case 'pmon':
+                handlePmonUpdate(data.payload);
+                break;
+
+            case 'deployment':
+                handleDeploymentUpdate(data.payload);
+                break;
+
+            case 'log':
+                handleLogUpdate(data.payload);
+                break;
+
+            case 'heartbeat':
+                // Heartbeat acknowledged
+                break;
+
+            case 'notification':
+                showToast(data.payload.level || 'info', data.payload.title, data.payload.message);
+                break;
+
+            default:
+                console.log('[WS] Unknown message type:', data.type);
+        }
+    } catch (error) {
+        console.error('[WS] Message parse error:', error);
+    }
+}
+
+/**
+ * Handle WebSocket error
+ */
+function handleWebSocketError(event) {
+    console.error('[WS] Error:', event);
+    updateWebSocketStatus('disconnected');
+}
+
+/**
+ * Handle WebSocket close
+ */
+function handleWebSocketClose(event) {
+    console.log('[WS] Closed:', event.code, event.reason);
+    updateWebSocketStatus('disconnected');
+    stopWebSocketHeartbeat();
+
+    // Attempt reconnection if not intentionally closed
+    if (event.code !== 1000) {
+        scheduleWebSocketReconnect();
+    }
+}
+
+/**
+ * Schedule WebSocket reconnection with exponential backoff
+ */
+function scheduleWebSocketReconnect() {
+    if (_wsReconnectAttempts >= _wsMaxReconnectAttempts) {
+        console.log('[WS] Max reconnection attempts reached, falling back to polling');
+        showToast('warning', 'Connection Lost', 'Using polling mode for updates');
+        // Fall back to polling
+        if (!_autoRefreshEnabled) {
+            document.getElementById('autoRefreshCheckbox').checked = true;
+            toggleAutoRefresh();
+        }
+        return;
+    }
+
+    const delay = _wsReconnectDelay * Math.pow(2, _wsReconnectAttempts);
+    _wsReconnectAttempts++;
+
+    console.log(`[WS] Reconnecting in ${delay}ms (attempt ${_wsReconnectAttempts})`);
+
+    setTimeout(() => {
+        if (!_websocket || _websocket.readyState === WebSocket.CLOSED) {
+            initWebSocket();
+        }
+    }, delay);
+}
+
+/**
+ * Send message through WebSocket
+ */
+function sendWebSocketMessage(data) {
+    if (_websocket && _websocket.readyState === WebSocket.OPEN) {
+        _websocket.send(JSON.stringify(data));
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Start WebSocket heartbeat
+ */
+function startWebSocketHeartbeat() {
+    stopWebSocketHeartbeat();
+    _wsHeartbeatInterval = setInterval(() => {
+        sendWebSocketMessage({ type: 'heartbeat' });
+    }, 30000);
+}
+
+/**
+ * Stop WebSocket heartbeat
+ */
+function stopWebSocketHeartbeat() {
+    if (_wsHeartbeatInterval) {
+        clearInterval(_wsHeartbeatInterval);
+        _wsHeartbeatInterval = null;
+    }
+}
+
+/**
+ * Update WebSocket status indicator
+ * @param {string} status - 'connected', 'connecting', or 'disconnected'
+ */
+function updateWebSocketStatus(status) {
+    const container = document.getElementById('wsStatus');
+    const indicator = container?.querySelector('.ws-indicator');
+    const label = container?.querySelector('.ws-label');
+
+    if (indicator) {
+        indicator.classList.remove('connected', 'connecting', 'disconnected');
+        indicator.classList.add(status);
+    }
+
+    if (label) {
+        const labels = {
+            connected: 'Online',
+            connecting: 'Connecting...',
+            disconnected: 'Offline'
+        };
+        label.textContent = labels[status] || 'Offline';
+    }
+
+    if (container) {
+        const titles = {
+            connected: 'WebSocket connected - Real-time updates active',
+            connecting: 'Connecting to WebSocket...',
+            disconnected: 'WebSocket disconnected - Using polling'
+        };
+        container.title = titles[status] || 'WebSocket disconnected';
+    }
+}
+
+/**
+ * Handle pmon update from WebSocket
+ */
+function handlePmonUpdate(data) {
+    if (data && data.instances) {
+        clearInstanceTabs();
+        updateLastRefreshTime();
+
+        const instances = data.instances;
+        const tabsContainer = document.getElementById('instanceTabsContainer');
+        const contentContainer = document.getElementById('instanceContentContainer');
+
+        instances.forEach((instance, index) => {
+            const tabButton = document.createElement('button');
+            tabButton.textContent = instance.hostname || 'Instance ' + (index + 1);
+            tabButton.className = 'instance-tab-button';
+            if (index === 0) tabButton.classList.add('active');
+            tabButton.onclick = () => showInstanceContent(index, instances.length);
+            tabsContainer.appendChild(tabButton);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.id = 'instanceContent' + index;
+            contentDiv.style.display = index === 0 ? 'block' : 'none';
+
+            const table = createManagerTable(instance);
+            contentDiv.appendChild(table);
+            contentContainer.appendChild(contentDiv);
+        });
+    }
+}
+
+/**
+ * Handle deployment update from WebSocket
+ */
+function handleDeploymentUpdate(data) {
+    if (data.status === 'started') {
+        showToast('info', 'Deployment Started', `Deploying ${data.fileName}...`);
+    } else if (data.status === 'completed') {
+        showToast('success', 'Deployment Complete', `${data.fileName} deployed successfully`);
+        refreshHistory();
+    } else if (data.status === 'failed') {
+        showToast('error', 'Deployment Failed', data.message || 'Unknown error');
+        refreshHistory();
+    } else if (data.status === 'progress') {
+        // Update progress bar if visible
+        updateUploadProgress(data.progress, data.message);
+    }
+}
+
+/**
+ * Handle log update from WebSocket
+ */
+function handleLogUpdate(data) {
+    if (data.lines && data.lines.length > 0) {
+        renderLogLines(data.lines);
+    }
+}
+
+/* ==========================================================================
+   Chunked Upload with Progress
+   ========================================================================== */
+
+/**
+ * Upload file in chunks with progress tracking
+ * @param {File} file - The file to upload
+ * @param {boolean} restart - Whether to restart after upload
+ * @returns {Promise<boolean>} Success status
+ */
+async function uploadFileChunked(file, restart = false) {
+    if (_uploadInProgress) {
+        showToast('warning', 'Upload in Progress', 'Please wait for current upload to complete');
+        return false;
+    }
+
+    _uploadInProgress = true;
+    _uploadAbortController = new AbortController();
+
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = generateUploadId();
+
+    console.log(`[Upload] Starting chunked upload: ${file.name}, ${totalChunks} chunks`);
+
+    // Show progress UI
+    showUploadProgress(file.name, file.size);
+
+    try {
+        // Get CSRF token
+        const csrfToken = await getCsrfToken();
+        if (!csrfToken) {
+            throw new Error('Could not obtain CSRF token');
+        }
+
+        // Initialize upload session
+        const initResponse = await fetch('/project/upload/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                uploadId: uploadId,
+                fileName: file.name,
+                fileSize: file.size,
+                totalChunks: totalChunks,
+                restartProject: restart,
+                csrfToken: csrfToken
+            }),
+            signal: _uploadAbortController.signal
+        });
+
+        if (!initResponse.ok) {
+            throw new Error('Failed to initialize upload');
+        }
+
+        // Upload chunks
+        let uploadedChunks = 0;
+        const failedChunks = [];
+
+        // Upload in batches for parallel processing
+        for (let i = 0; i < totalChunks; i += MAX_CONCURRENT_CHUNKS) {
+            const batch = [];
+
+            for (let j = i; j < Math.min(i + MAX_CONCURRENT_CHUNKS, totalChunks); j++) {
+                batch.push(uploadChunk(file, uploadId, j, totalChunks, csrfToken));
+            }
+
+            const results = await Promise.allSettled(batch);
+
+            for (let k = 0; k < results.length; k++) {
+                const chunkIndex = i + k;
+                if (results[k].status === 'fulfilled' && results[k].value) {
+                    uploadedChunks++;
+                    const progress = Math.round((uploadedChunks / totalChunks) * 100);
+                    updateUploadProgress(progress, `Uploading... ${uploadedChunks}/${totalChunks} chunks`);
+                } else {
+                    failedChunks.push(chunkIndex);
+                    console.error(`[Upload] Chunk ${chunkIndex} failed`);
+                }
+            }
+
+            // Check for abort
+            if (_uploadAbortController.signal.aborted) {
+                throw new Error('Upload cancelled');
+            }
+        }
+
+        // Retry failed chunks
+        if (failedChunks.length > 0) {
+            console.log(`[Upload] Retrying ${failedChunks.length} failed chunks`);
+            for (const chunkIndex of failedChunks) {
+                const success = await uploadChunk(file, uploadId, chunkIndex, totalChunks, csrfToken, 3);
+                if (success) {
+                    uploadedChunks++;
+                    const progress = Math.round((uploadedChunks / totalChunks) * 100);
+                    updateUploadProgress(progress, `Retrying... ${uploadedChunks}/${totalChunks} chunks`);
+                } else {
+                    throw new Error(`Failed to upload chunk ${chunkIndex} after retries`);
+                }
+            }
+        }
+
+        // Finalize upload
+        updateUploadProgress(100, 'Finalizing...');
+
+        const finalizeResponse = await fetch('/project/upload/finalize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                uploadId: uploadId,
+                csrfToken: csrfToken
+            }),
+            signal: _uploadAbortController.signal
+        });
+
+        if (!finalizeResponse.ok) {
+            throw new Error('Failed to finalize upload');
+        }
+
+        // Success
+        updateUploadProgress(100, 'Complete!');
+        showToast('success', 'Upload Complete', `${file.name} uploaded successfully`);
+
+        // Refresh CSRF token
+        await refreshCsrfToken();
+
+        // Hide progress after delay
+        setTimeout(() => {
+            hideUploadProgress();
+            refreshHistory();
+        }, 2000);
+
+        return true;
+
+    } catch (error) {
+        console.error('[Upload] Error:', error);
+
+        if (error.name === 'AbortError' || error.message === 'Upload cancelled') {
+            showToast('warning', 'Upload Cancelled', 'File upload was cancelled');
+        } else {
+            showToast('error', 'Upload Failed', error.message);
+        }
+
+        hideUploadProgress();
+        return false;
+
+    } finally {
+        _uploadInProgress = false;
+        _uploadAbortController = null;
+    }
+}
+
+/**
+ * Upload a single chunk
+ * @param {File} file - The file
+ * @param {string} uploadId - Upload session ID
+ * @param {number} chunkIndex - Chunk index
+ * @param {number} totalChunks - Total number of chunks
+ * @param {string} csrfToken - CSRF token
+ * @param {number} retries - Number of retries
+ * @returns {Promise<boolean>} Success status
+ */
+async function uploadChunk(file, uploadId, chunkIndex, totalChunks, csrfToken, retries = 0) {
+    const start = chunkIndex * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const chunk = file.slice(start, end);
+
+    const formData = new FormData();
+    formData.append('uploadId', uploadId);
+    formData.append('chunkIndex', chunkIndex);
+    formData.append('totalChunks', totalChunks);
+    formData.append('chunk', chunk);
+    formData.append('csrfToken', csrfToken);
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch('/project/upload/chunk', {
+                method: 'POST',
+                body: formData,
+                signal: _uploadAbortController?.signal
+            });
+
+            if (response.ok) {
+                return true;
+            }
+
+            if (attempt < retries) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw error;
+            }
+            if (attempt < retries) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Generate unique upload ID
+ */
+function generateUploadId() {
+    return 'upload_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+/**
+ * Cancel current upload
+ */
+function cancelUpload() {
+    if (_uploadAbortController) {
+        _uploadAbortController.abort();
+        showToast('info', 'Cancelling', 'Upload is being cancelled...');
+    }
+}
+
+/**
+ * Show upload progress UI
+ */
+function showUploadProgress(fileName, fileSize) {
+    const container = document.getElementById('uploadProgressContainer');
+    if (container) {
+        container.style.display = 'block';
+        document.getElementById('uploadFileName').textContent = fileName;
+        document.getElementById('uploadFileSize').textContent = formatFileSize(fileSize);
+        document.getElementById('uploadProgressBar').style.width = '0%';
+        document.getElementById('uploadProgressText').textContent = 'Starting...';
+        document.getElementById('uploadProgressPercent').textContent = '0%';
+    }
+}
+
+/**
+ * Update upload progress UI
+ */
+function updateUploadProgress(percent, message) {
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    const progressPercent = document.getElementById('uploadProgressPercent');
+
+    if (progressBar) {
+        progressBar.style.width = percent + '%';
+    }
+    if (progressText) {
+        progressText.textContent = message || '';
+    }
+    if (progressPercent) {
+        progressPercent.textContent = percent + '%';
+    }
+}
+
+/**
+ * Hide upload progress UI
+ */
+function hideUploadProgress() {
+    const container = document.getElementById('uploadProgressContainer');
+    if (container) {
+        container.style.display = 'none';
+    }
+}
+
+/* ==========================================================================
+   Simple Upload Fallback (for servers without chunked upload support)
+   ========================================================================== */
+
+/**
+ * Upload file with XMLHttpRequest for progress tracking
+ * @param {File} file - The file to upload
+ * @param {boolean} restart - Whether to restart after upload
+ */
+async function uploadFileWithProgress(file, restart = false) {
+    if (_uploadInProgress) {
+        showToast('warning', 'Upload in Progress', 'Please wait for current upload to complete');
+        return false;
+    }
+
+    _uploadInProgress = true;
+
+    // Get CSRF token
+    const csrfToken = await getCsrfToken();
+    if (!csrfToken) {
+        showToast('error', 'Security Error', 'Could not obtain CSRF token');
+        _uploadInProgress = false;
+        return false;
+    }
+
+    // Show progress
+    showUploadProgress(file.name, file.size);
+
+    return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+
+        formData.append('dateiupload', file);
+        formData.append('restartProject', restart);
+        formData.append('csrfToken', csrfToken);
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                updateUploadProgress(percent, `Uploading... ${formatFileSize(event.loaded)} / ${formatFileSize(event.total)}`);
+            }
+        });
+
+        // Handle completion
+        xhr.addEventListener('load', async () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                updateUploadProgress(100, 'Complete!');
+                showToast('success', 'Upload Complete', `${file.name} uploaded successfully`);
+                await refreshCsrfToken();
+
+                setTimeout(() => {
+                    hideUploadProgress();
+                    refreshHistory();
+                }, 2000);
+
+                resolve(true);
+            } else {
+                showToast('error', 'Upload Failed', `Server returned: ${xhr.status}`);
+                hideUploadProgress();
+                resolve(false);
+            }
+            _uploadInProgress = false;
+        });
+
+        // Handle errors
+        xhr.addEventListener('error', () => {
+            showToast('error', 'Upload Error', 'Network error during upload');
+            hideUploadProgress();
+            _uploadInProgress = false;
+            resolve(false);
+        });
+
+        // Handle abort
+        xhr.addEventListener('abort', () => {
+            showToast('warning', 'Upload Cancelled', 'File upload was cancelled');
+            hideUploadProgress();
+            _uploadInProgress = false;
+            resolve(false);
+        });
+
+        // Store reference for cancel functionality
+        _uploadAbortController = { abort: () => xhr.abort() };
+
+        // Start upload
+        xhr.open('POST', '/project/download');
+        xhr.send(formData);
+    });
+}
+
 /* ==========================================================================
    Theme Management (Siemens iX Design System)
    Uses data-ix-theme and data-ix-color-schema attributes
@@ -1082,35 +1765,14 @@ function confirmZipUpload() {
 }
 
 /**
- * Upload ZIP file to server
+ * Upload ZIP file to server with progress tracking
+ * Uses XMLHttpRequest for progress events support
  * @param {File} file - The ZIP file to upload
  */
 async function uploadZipFile(file) {
-    const formData = new FormData();
-    formData.append('dateiupload', file);
-    formData.append('restartProject', document.getElementById('restartProject').checked);
-    formData.append('csrfToken', getCsrfToken());
-
-    showToast('info', 'Uploading', 'Deploying ' + file.name + '...');
-
-    try {
-        const response = await fetch('/project/download', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            showToast('success', 'Deployment Started', 'File uploaded successfully');
-            // Refresh CSRF token after use
-            await fetchCsrfToken();
-            // Refresh history after a delay
-            setTimeout(refreshHistory, 2000);
-        } else {
-            showToast('error', 'Upload Failed', 'Server returned: ' + response.status);
-        }
-    } catch (error) {
-        showToast('error', 'Upload Error', error.message);
-    }
+    const restart = document.getElementById('restartProject').checked;
+    // Use the progress-enabled upload function which handles everything
+    await uploadFileWithProgress(file, restart);
 }
 
 /* ==========================================================================
@@ -1128,6 +1790,10 @@ document.addEventListener("DOMContentLoaded", async function() {
     initLogViewer();
     // Fetch initial CSRF token
     await fetchCsrfToken();
+    // Register Service Worker for offline support
+    registerServiceWorker();
+    // Initialize WebSocket for real-time updates
+    initWebSocket();
 });
 
 /**

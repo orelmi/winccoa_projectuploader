@@ -1471,3 +1471,161 @@ td[data-state="2"] {
         max-height: 150px;
     }
 }
+
+/* ==========================================================================
+   Upload Progress Bar - Siemens iX Style
+   ========================================================================== */
+
+.upload-progress-container {
+    margin-top: 20px;
+    padding: 16px;
+    background-color: var(--theme-color-component-2);
+    border: 1px solid var(--theme-color-weak-bdr);
+    border-radius: 4px;
+}
+
+.upload-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.upload-file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#uploadFileName {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--theme-color-std-text);
+}
+
+.upload-file-size {
+    font-size: 12px;
+    color: var(--theme-color-soft-text);
+}
+
+.btn-cancel {
+    background: none;
+    border: 1px solid var(--theme-color-alarm);
+    color: var(--theme-color-alarm);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.15s ease;
+}
+
+.btn-cancel:hover {
+    background-color: var(--theme-color-alarm);
+    color: var(--theme-color-inv-std-text);
+}
+
+.upload-progress-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+#uploadProgressText {
+    color: var(--theme-color-std-text);
+}
+
+#uploadProgressPercent {
+    font-weight: 500;
+    color: var(--theme-color-primary);
+}
+
+.upload-progress-track {
+    height: 8px;
+    background-color: var(--theme-color-3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    background-color: var(--theme-color-primary);
+    border-radius: 4px;
+    transition: width 0.2s ease-out;
+}
+
+.upload-progress-fill.complete {
+    background-color: var(--theme-color-success);
+}
+
+.upload-progress-fill.error {
+    background-color: var(--theme-color-alarm);
+}
+
+/* ==========================================================================
+   WebSocket Status Indicator - Siemens iX Style
+   ========================================================================== */
+
+.ws-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 16px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: default;
+}
+
+.ws-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.ws-indicator.disconnected {
+    background-color: var(--theme-color-alarm);
+    box-shadow: 0 0 4px var(--theme-color-alarm);
+}
+
+.ws-indicator.connecting {
+    background-color: var(--theme-color-warning);
+    box-shadow: 0 0 4px var(--theme-color-warning);
+    animation: pulse 1s infinite;
+}
+
+.ws-indicator.connected {
+    background-color: var(--theme-color-success);
+    box-shadow: 0 0 4px var(--theme-color-success);
+}
+
+.ws-label {
+    color: var(--theme-color-soft-text);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Responsive adjustments for WebSocket status */
+@media screen and (max-width: 768px) {
+    .ws-label {
+        display: none;
+    }
+
+    .ws-status {
+        margin-right: 8px;
+        padding: 4px;
+    }
+}

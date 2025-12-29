@@ -37,6 +37,11 @@
             </g>
         </svg>
         <h1>WinCC Open Architecture – Project manager</h1>
+        <!-- WebSocket Connection Status -->
+        <div id="wsStatus" class="ws-status" title="WebSocket disconnected">
+            <span class="ws-indicator disconnected"></span>
+            <span class="ws-label">Offline</span>
+        </div>
         <!-- Dark Mode Toggle -->
         <button id="darkModeToggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
             <span class="icon-sun">&#9788;</span>
@@ -76,6 +81,24 @@
 
                         <input type="submit" value="Download">
                     </form>
+
+                    <!-- Upload Progress Bar -->
+                    <div id="uploadProgressContainer" class="upload-progress-container" style="display: none;">
+                        <div class="upload-progress-header">
+                            <div class="upload-file-info">
+                                <span id="uploadFileName">-</span>
+                                <span id="uploadFileSize" class="upload-file-size">-</span>
+                            </div>
+                            <button type="button" id="uploadCancelBtn" onclick="cancelUpload()" class="btn-cancel" title="Cancel upload">&#10005;</button>
+                        </div>
+                        <div class="upload-progress-status">
+                            <span id="uploadProgressText">Starting...</span>
+                            <span id="uploadProgressPercent">0%</span>
+                        </div>
+                        <div class="upload-progress-track">
+                            <div id="uploadProgressBar" class="upload-progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
 
                     <!-- Confirmation Modal -->
                     <div id="confirmationModal" class="modal-overlay">
