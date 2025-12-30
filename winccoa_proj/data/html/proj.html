@@ -68,7 +68,34 @@
                         <input type="hidden" name="csrfToken" id="csrfToken" value="">
 
                         <label for="dateiupload">Select ZIP file:</label>
-                        <input type="file" name="dateiupload" accept=".zip" required>
+                        <div class="file-upload-zone" id="fileUploadZone" onclick="document.getElementById('dateiupload').click()">
+                            <input type="file" id="dateiupload" name="dateiupload" accept=".zip" required>
+                            <div class="file-upload-content">
+                                <svg class="file-upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M14 2V8H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M12 18V12M12 12L9 15M12 12L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span class="file-upload-text">Drop ZIP file here or click to browse</span>
+                                <span class="file-upload-hint">Supports .zip files only</span>
+                            </div>
+                            <div class="file-upload-selected" style="display: none;">
+                                <svg class="file-selected-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" fill="currentColor" opacity="0.2"/>
+                                    <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" stroke="currentColor" stroke-width="1.5"/>
+                                    <path d="M14 2V8H20" stroke="currentColor" stroke-width="1.5"/>
+                                </svg>
+                                <div class="file-selected-info">
+                                    <span class="file-selected-name">-</span>
+                                    <span class="file-selected-size">-</span>
+                                </div>
+                                <button type="button" class="file-remove-btn" onclick="clearFileSelection(event)" title="Remove file">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
 
                         <label>
                             <input type="checkbox" name="restartProject" id="restartProject" value="true" onchange="toggleNotice()">

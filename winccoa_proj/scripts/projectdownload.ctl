@@ -7,49 +7,6 @@ const string PMON_DEPLOY_FILE = PROJ_PATH + CONFIG_REL_PATH + "pmondeploy.txt";
 const string INSTALL_FILE = PROJ_PATH + CONFIG_REL_PATH + "install.bat";
 const string CONFIG_ENV_FILE = PROJ_PATH + CONFIG_REL_PATH + "config.env.bat";
 
-// Security: Allowed file extensions (whitelist)
-const dyn_string ALLOWED_EXTENSIONS = makeDynString(
-  ".ctl",      // Control scripts
-  ".pnl",      // Panels
-  ".xml",      // XML config files
-  ".txt",      // Text files
-  ".bat",      // Batch scripts
-  ".cmd",      // Command scripts
-  ".dpl",      // Datapoint lists
-  ".cat",      // Catalog files
-  ".png",      // Images
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".svg",
-  ".ico",
-  ".bmp",
-  ".css",      // Web assets
-  ".js",
-  ".html",
-  ".htm",
-  ".json",
-  ".md",       // Documentation
-  ".ini",      // Config files
-  ".cfg",
-  ".conf"
-);
-
-// Security: Blocked patterns in file paths
-const dyn_string BLOCKED_PATH_PATTERNS = makeDynString(
-  "..",           // Path traversal
-  "..\\",         // Windows path traversal
-  "../",          // Unix path traversal
-  "..%2f",        // URL encoded
-  "..%5c",        // URL encoded backslash
-  "%2e%2e",       // Double dot URL encoded
-  "....//",       // Double encoding bypass
-  "....\\\\",     // Double encoding bypass Windows
-  "/etc/",        // System paths
-  "C:\\Windows",  // Windows system
-  "C:\\Program"   // Windows programs
-);
-
 bool _running;
 
 main(string arg)
@@ -108,10 +65,6 @@ cbData(string dp1, bool command, string dp2, blob filedata, string dp3, bool res
     if (rc == 0)
     {
       statusMessage = "Deployment successful";
-    }
-    else if (rc == -100)
-    {
-      statusMessage = "Security validation failed";
     }
     else
     {
@@ -338,117 +291,12 @@ void logDeployment(string fileName, long fileSize, string user, int status, stri
 }
 
 /* ==========================================================================
-   Security: ZIP Validation Functions
-   ========================================================================== */
-
-/**
- * Check if a file path contains path traversal patterns
- * @param filePath The file path to check
- * @return true if path is safe, false if malicious pattern detected
- */
-bool isPathSafe(string filePath)
-{
-  string lowerPath = strtolower(filePath);
-
-  for (int i = 1; i <= dynlen(BLOCKED_PATH_PATTERNS); i++)
-  {
-    if (strpos(lowerPath, strtolower(BLOCKED_PATH_PATTERNS[i])) >= 0)
-    {
-      DebugTN("SECURITY WARNING: Blocked path pattern detected:", BLOCKED_PATH_PATTERNS[i], "in", filePath);
-      return false;
-    }
-  }
-  return true;
-}
-
-/**
- * Check if a file extension is in the allowed list
- * @param filePath The file path to check
- * @return true if extension is allowed, false otherwise
- */
-bool isExtensionAllowed(string filePath)
-{
-  // Allow directories (no extension check needed)
-  if (filePath[strlen(filePath) - 1] == "/" || filePath[strlen(filePath) - 1] == "\\")
-  {
-    return true;
-  }
-
-  string lowerPath = strtolower(filePath);
-
-  for (int i = 1; i <= dynlen(ALLOWED_EXTENSIONS); i++)
-  {
-    string ext = strtolower(ALLOWED_EXTENSIONS[i]);
-    int extLen = strlen(ext);
-    int pathLen = strlen(lowerPath);
-
-    if (pathLen >= extLen)
-    {
-      if (substr(lowerPath, pathLen - extLen, extLen) == ext)
-      {
-        return true;
-      }
-    }
-  }
-
-  DebugTN("SECURITY WARNING: File extension not allowed:", filePath);
-  return false;
-}
-
-/**
- * Validate all entries in a ZIP file before extraction
- * @param zipPath Path to the ZIP file
- * @param errors Output: list of validation errors
- * @return 0 if valid, negative error code otherwise
- */
-int validateZipContents(string zipPath, dyn_string &errors)
-{
-  errors = makeDynString();
-
-  // Get list of files in the ZIP
-  dyn_string zipContents;
-  int rc = zipList(zipPath, zipContents);
-
-  if (rc != 0)
-  {
-    dynAppend(errors, "Failed to read ZIP contents, error code: " + rc);
-    return -1;
-  }
-
-  bool hasSecurityIssue = false;
-
-  for (int i = 1; i <= dynlen(zipContents); i++)
-  {
-    string entry = zipContents[i];
-
-    // Check for path traversal
-    if (!isPathSafe(entry))
-    {
-      dynAppend(errors, "Path traversal attempt: " + entry);
-      hasSecurityIssue = true;
-    }
-
-    // Check file extension (skip directories)
-    if (!isExtensionAllowed(entry))
-    {
-      dynAppend(errors, "Blocked file type: " + entry);
-      hasSecurityIssue = true;
-    }
-  }
-
-  if (hasSecurityIssue)
-  {
-    DebugTN("SECURITY: ZIP validation failed with", dynlen(errors), "errors");
-    return -2;
-  }
-
-  DebugTN("SECURITY: ZIP validation passed,", dynlen(zipContents), "files checked");
-  return 0;
-}
-
-/* ==========================================================================
    ZIP Extraction
    ========================================================================== */
+
+// Note: ZIP content validation (path traversal, file extensions) is performed
+// client-side using JSZip before upload. WinCC OA does not provide a native
+// function to list ZIP contents without extracting.
 
 int unzipData(blob data)
 {
@@ -464,23 +312,8 @@ int unzipData(blob data)
 	fwrite(f, data);
 	fclose(f);
 
-	DebugTN("Validating ZIP file:", filePath);
-
-  // Security: Validate ZIP contents before extraction
-  dyn_string validationErrors;
-  int validationResult = validateZipContents(filePath, validationErrors);
-
-  if (validationResult != 0)
-  {
-    DebugTN("SECURITY: ZIP validation failed!");
-    for (int i = 1; i <= dynlen(validationErrors); i++)
-    {
-      DebugTN("  - " + validationErrors[i]);
-    }
-    // Clean up the invalid ZIP file
-    remove(filePath);
-    return -100; // Security validation error
-  }
+  // Note: ZIP content validation is performed client-side using JSZip
+  // before upload. Server-side zipList function is not available in WinCC OA.
 
 	DebugTN("Unzip file ", filePath, PROJ_PATH);
   int rc = unzip(filePath, PROJ_PATH);

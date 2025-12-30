@@ -952,6 +952,9 @@ async function uploadFileWithProgress(file, restart = false) {
                 showToast('success', 'Upload Complete', `${file.name} uploaded successfully`);
                 await refreshCsrfToken();
 
+                // Reset file selection zone
+                resetFileUploadAfterSuccess();
+
                 setTimeout(() => {
                     hideUploadProgress();
                     refreshHistory();
@@ -2321,11 +2324,16 @@ function closeZipPreview() {
  * Confirm ZIP upload after preview
  */
 function confirmZipUpload() {
-    closeZipPreview();
+    // Save reference before closing (closeZipPreview sets _pendingZipFile to null)
+    const fileToUpload = _pendingZipFile;
 
-    if (_pendingZipFile) {
+    // Close the modal
+    document.getElementById('zipPreviewModal').style.display = 'none';
+    _pendingZipFile = null;
+
+    if (fileToUpload) {
         // Trigger the actual upload
-        uploadZipFile(_pendingZipFile);
+        uploadZipFile(fileToUpload);
     }
 }
 
@@ -2341,6 +2349,121 @@ async function uploadZipFile(file) {
 }
 
 /* ==========================================================================
+   File Upload Zone - Siemens iX Style
+   ========================================================================== */
+
+/**
+ * Initialize the file upload zone with drag & drop support
+ */
+function initFileUploadZone() {
+    const zone = document.getElementById('fileUploadZone');
+    const fileInput = document.getElementById('dateiupload');
+
+    if (!zone || !fileInput) return;
+
+    // Handle file selection
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+            updateFileUploadDisplay(this.files[0]);
+        }
+    });
+
+    // Drag & drop events
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('dragover');
+    });
+
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('dragover');
+
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            const file = files[0];
+            // Validate file type
+            if (file.name.toLowerCase().endsWith('.zip')) {
+                // Set the file to the input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                updateFileUploadDisplay(file);
+            } else {
+                showToast('error', 'Invalid File', 'Please select a ZIP file');
+            }
+        }
+    });
+
+    // Prevent default click on remove button from triggering file dialog
+    zone.addEventListener('click', function(e) {
+        if (e.target.closest('.file-remove-btn')) {
+            e.stopPropagation();
+        }
+    });
+}
+
+/**
+ * Update the file upload zone display with selected file info
+ * @param {File} file - The selected file
+ */
+function updateFileUploadDisplay(file) {
+    const zone = document.getElementById('fileUploadZone');
+    const content = zone.querySelector('.file-upload-content');
+    const selected = zone.querySelector('.file-upload-selected');
+    const nameSpan = zone.querySelector('.file-selected-name');
+    const sizeSpan = zone.querySelector('.file-selected-size');
+
+    if (file) {
+        // Show selected file view
+        content.style.display = 'none';
+        selected.style.display = 'flex';
+        zone.classList.add('has-file');
+
+        // Update file info
+        nameSpan.textContent = file.name;
+        sizeSpan.textContent = formatFileSize(file.size);
+    } else {
+        // Show upload prompt
+        content.style.display = 'flex';
+        selected.style.display = 'none';
+        zone.classList.remove('has-file');
+    }
+}
+
+/**
+ * Clear the file selection and reset upload zone
+ * @param {Event} e - Click event (optional)
+ */
+function clearFileSelection(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const fileInput = document.getElementById('dateiupload');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+
+    updateFileUploadDisplay(null);
+}
+
+/**
+ * Reset file upload zone after successful upload
+ */
+function resetFileUploadAfterSuccess() {
+    clearFileSelection();
+}
+
+/* ==========================================================================
    Initialization
    ========================================================================== */
 
@@ -2351,6 +2474,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     toggleNotice();
     refreshHistory();
     initLogViewer();
+    initFileUploadZone();
     // Fetch initial CSRF token
     await fetchCsrfToken();
     // Initialize WebSocket for real-time updates (also handles pmon status)
